@@ -1,0 +1,1 @@
+export const PO_APPROVAL_THRESHOLD = 1_000_000;
