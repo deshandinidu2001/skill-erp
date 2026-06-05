@@ -16,7 +16,7 @@ import { StatCard } from "@/components/cards/StatCard";
 import { DataTable } from "@/components/tables/DataTable";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { formatCurrency } from "@/lib/utils";
-import { changeProjectStatus, getProjectDetail } from "@/services/mock/projects.service";
+import { changeProjectStatus, getProjectDetail } from "@/services/api/client/projects.service";
 import type { ClientPayment, InventoryBalance, JournalEntry, PettyCash, ProjectExpense, ProjectProgressUpdate, ProjectTeamAssignment, ProjectVehicleAssignment, StockRequest, PurchaseOrder } from "@/types";
 
 const tabs = ["Overview", "Team", "Progress", "Expenses", "Payments", "Stock", "Vehicles", "Documents", "Petty Cash", "Finance", "Timeline"] as const;

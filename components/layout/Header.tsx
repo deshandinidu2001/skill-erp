@@ -2,10 +2,10 @@
 
 import { signOut } from "next-auth/react";
 import { Bell, LogOut, Search, UserCircle } from "lucide-react";
-import { useMemo, useState } from "react";
-import { employees, leads, projects } from "@/services/mock/seed";
+import { useEffect, useState } from "react";
 import { roleLabels, type Role } from "@/constants/roles";
-import { includesText } from "@/lib/utils";
+
+type SearchResult = { label: string; type: string; href: string };
 
 export function Header({
   user,
@@ -13,15 +13,25 @@ export function Header({
   user?: { name?: string | null; email?: string | null; role?: Role };
 }) {
   const [query, setQuery] = useState("");
-  const results = useMemo(() => {
-    if (!query.trim()) return [];
-    return [
-      ...leads.map((item) => ({ label: item.title, type: "Lead", href: `/marketing/leads/${item.id}` })),
-      ...projects.map((item) => ({ label: item.name, type: "Project", href: `/projects/${item.id}` })),
-      ...employees.map((item) => ({ label: item.name, type: "Employee", href: "/hr/employees" })),
-    ]
-      .filter((item) => includesText(item.label, query))
-      .slice(0, 6);
+  const [results, setResults] = useState<SearchResult[]>([]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    if (!query.trim()) {
+      setResults([]);
+      return () => controller.abort();
+    }
+    const handle = window.setTimeout(async () => {
+      const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`, { signal: controller.signal });
+      if (res.ok) {
+        const body = await res.json();
+        setResults(body.results ?? []);
+      }
+    }, 200);
+    return () => {
+      window.clearTimeout(handle);
+      controller.abort();
+    };
   }, [query]);
 
   return (

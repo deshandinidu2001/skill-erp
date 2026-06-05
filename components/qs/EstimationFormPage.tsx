@@ -12,8 +12,8 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { FormSection } from "@/components/forms/FormSection";
 import { formatCurrency } from "@/lib/utils";
-import { getEstimationById } from "@/services/mock/estimations.service";
-import { leads } from "@/services/mock/seed";
+import { getEstimationById } from "@/services/api/client/estimations.service";
+import { getLeads } from "@/services/api/client/leads.service";
 import type { BoqLine, EstimationLine } from "@/types";
 
 const costSchema = z.object({
@@ -31,7 +31,8 @@ type CostValues = z.output<typeof costSchema>;
 
 export function EstimationFormPage({ id }: { id?: string }) {
   const { data: existing } = useQuery({ queryKey: ["estimation", id], queryFn: () => (id ? getEstimationById(id) : Promise.resolve(undefined)) });
-  const lead = leads.find((item) => item.status === "qs_estimation_pending") ?? leads[1];
+  const { data: leads = [] } = useQuery({ queryKey: ["leads", "qs-pending"], queryFn: () => getLeads() });
+  const lead = leads.find((item) => item.status === "qs_estimation_pending") ?? leads[0];
   const [boqOpen, setBoqOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [lines, setLines] = useState<EstimationLine[]>(
@@ -82,7 +83,7 @@ export function EstimationFormPage({ id }: { id?: string }) {
     const parsed = costSchema.parse(values);
     const hasLines = lines.some((line) => line.description.trim() && Number(line.qty) > 0);
     const hasCosts = subtotal > 0;
-    if (lead.status !== "qs_estimation_pending" || (!hasLines && !hasCosts)) {
+    if (!lead || lead.status !== "qs_estimation_pending" || (!hasLines && !hasCosts)) {
       setToast("Validation blocked: lead must be QS Estimation Pending and at least one line or cost component is required.");
       return;
     }
@@ -98,10 +99,10 @@ export function EstimationFormPage({ id }: { id?: string }) {
         <section className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="text-base font-semibold text-slate-950">Lead Reference</h2>
           <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-slate-600">
-            <span className="font-semibold text-slate-950">{lead.code}</span>
-            <span>{lead.customerName}</span>
-            <span>{lead.projectType}</span>
-            <StatusBadge status={lead.status} />
+            <span className="font-semibold text-slate-950">{lead?.code ?? "No lead selected"}</span>
+            <span>{lead?.customerName ?? "-"}</span>
+            <span>{lead?.projectType ?? "-"}</span>
+            {lead ? <StatusBadge status={lead.status} /> : null}
           </div>
         </section>
         <FormSection title="Cost Summary Inputs">

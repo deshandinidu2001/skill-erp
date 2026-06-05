@@ -1,11 +1,15 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { StatCard } from "@/components/cards/StatCard";
 import { PageHeader } from "@/components/shared/PageHeader";
-import { estimations, quotations } from "@/services/mock/seed";
+import { getEstimations } from "@/services/api/client/estimations.service";
+import { getQuotations } from "@/services/api/client/quotations.service";
 
 export function QsDashboardPage() {
+  const { data: estimations = [] } = useQuery({ queryKey: ["estimations"], queryFn: () => getEstimations() });
+  const { data: quotations = [] } = useQuery({ queryKey: ["quotations"], queryFn: () => getQuotations() });
   const chart = Object.values(
     estimations.reduce<Record<string, { engineer: string; count: number }>>((acc, item) => {
       acc[item.estimator] ??= { engineer: item.estimator, count: 0 };

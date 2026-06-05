@@ -16,7 +16,7 @@ import { PriorityBadge } from "@/components/marketing/LeadListPage";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { usePermission } from "@/hooks/usePermission";
 import { formatCurrency } from "@/lib/utils";
-import { getLeadDetail, sendLeadToQs, updateLeadStatus } from "@/services/mock/leads.service";
+import { getLeadDetail, sendLeadToQs, updateLeadStatus } from "@/services/api/client/leads.service";
 import type { CommunicationEntry, EntityStatus, Estimation, Lead, Quotation } from "@/types";
 
 const tabs = ["Overview", "Estimations", "Quotations", "Communication", "Notes", "Attachments", "Timeline"] as const;

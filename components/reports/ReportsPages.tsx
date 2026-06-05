@@ -1,6 +1,7 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
+import { useQuery } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -10,25 +11,8 @@ import { StatCard } from "@/components/cards/StatCard";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { formatCurrency } from "@/lib/utils";
-import {
-  attendanceRecords,
-  clientPayments,
-  debtorAgingRows,
-  employees,
-  fuelLogs,
-  leads,
-  maintenanceLogs,
-  payrollBatches,
-  projectExpenses,
-  projects,
-  purchaseOrders,
-  quotations,
-  stockItems,
-  stockRequests,
-  suppliers,
-  vehicles,
-} from "@/services/mock/seed";
-import { calculatePayrollLine } from "@/services/mock/hr.service";
+import { calculatePayrollLine } from "@/services/api/client/hr.service";
+import { getReportsSummary } from "@/services/api/client/reports.service";
 
 const Chart = dynamic(() => import("@/components/reports/SimpleCharts").then((m) => m.SimpleChart), {
   ssr: false,
@@ -36,6 +20,47 @@ const Chart = dynamic(() => import("@/components/reports/SimpleCharts").then((m)
 });
 
 type Row = Record<string, string | number>;
+
+type ReportsData = {
+  leads: any[];
+  quotations: any[];
+  projects: any[];
+  finance: { payments: any[]; expenses: any[] };
+  employees: any[];
+  payrollBatches: any[];
+  attendanceRecords: any[];
+  stockItems: any[];
+  stockRequests: any[];
+  suppliers: any[];
+  purchaseOrders: any[];
+  vehicles: any[];
+  debtorAgingRows: any[];
+  maintenanceLogs: any[];
+  fuelLogs: any[];
+};
+
+const emptyReportData: ReportsData = {
+  leads: [],
+  quotations: [],
+  projects: [],
+  finance: { payments: [], expenses: [] },
+  employees: [],
+  payrollBatches: [],
+  attendanceRecords: [],
+  stockItems: [],
+  stockRequests: [],
+  suppliers: [],
+  purchaseOrders: [],
+  vehicles: [],
+  debtorAgingRows: [],
+  maintenanceLogs: [],
+  fuelLogs: [],
+};
+
+function useReportsData() {
+  const { data = emptyReportData } = useQuery({ queryKey: ["reports-summary"], queryFn: getReportsSummary });
+  return data as ReportsData;
+}
 
 const genericColumns: ColumnDef<Row>[] = [
   "a",
@@ -80,6 +105,7 @@ export function ReportsIndexPage() {
 }
 
 export function LeadPipelineReport() {
+  const { leads } = useReportsData();
   const rows = leads.map((lead) => ({
     a: lead.code,
     b: lead.customerName,
@@ -109,9 +135,10 @@ export function LeadPipelineReport() {
 }
 
 export function QuotationConversionReport() {
+  const { quotations } = useReportsData();
   const sent = quotations.filter((q) => q.sentDate);
   const approved = quotations.filter((q) => q.status === "approved");
-  const revised = quotations.filter((q) => q.status === "revision_requested" || q.clientResponses.some((r) => r.decision === "revision_requested"));
+  const revised = quotations.filter((q) => q.status === "revision_requested" || q.clientResponses.some((r: any) => r.decision === "revision_requested"));
   return (
     <ReportShell
       title="Quotation Conversion Report"
@@ -135,6 +162,8 @@ export function QuotationConversionReport() {
 }
 
 export function ProjectSummaryReport() {
+  const { projects, finance } = useReportsData();
+  const projectExpenses = finance.expenses;
   const actualByProject = new Map(projectExpenses.map((expense) => [expense.project_id, 0]));
   projectExpenses.forEach((expense) => actualByProject.set(expense.project_id, (actualByProject.get(expense.project_id) ?? 0) + expense.amount));
   return (
@@ -159,11 +188,12 @@ export function ProjectSummaryReport() {
 }
 
 export function PayrollReport() {
+  const { employees, payrollBatches } = useReportsData();
   const { role } = useCurrentUser();
   if (!["hr_manager", "finance_manager", "super_admin"].includes(role ?? "")) {
     return <EmptyState title="Access denied" description="Payroll reports are visible to HR Manager, Finance Manager, and Super Admin only." />;
   }
-  const lines = payrollBatches.flatMap((batch) => batch.lines.map((line) => ({ batch, line })));
+  const lines = payrollBatches.flatMap((batch) => batch.lines.map((line: any) => ({ batch, line })));
   const gross = lines.reduce((sum, item) => sum + item.line.basic + item.line.allowances, 0);
   const net = lines.reduce((sum, item) => sum + calculatePayrollLine(item.line).netPay, 0);
   const epfEtf = lines.reduce((sum, item) => {
@@ -176,7 +206,7 @@ export function PayrollReport() {
       description="Payroll gross, net, EPF and ETF by employee."
       filters={["Period", "Department", "Site"]}
       kpis={[["Total Employees", lines.length], ["Total Gross", formatCurrency(gross)], ["Total Net", formatCurrency(net)], ["Total EPF/ETF", formatCurrency(epfEtf)]]}
-      chartData={payrollBatches.map((b) => ({ name: b.period, value: b.lines.reduce((s, l) => s + calculatePayrollLine(l).netPay, 0) }))}
+      chartData={payrollBatches.map((b) => ({ name: b.period, value: b.lines.reduce((s: number, l: any) => s + calculatePayrollLine(l).netPay, 0) }))}
       rows={lines.map(({ batch, line }) => {
         const employee = employees.find((e) => e.id === line.employeeId);
         const calc = calculatePayrollLine(line);
@@ -187,6 +217,7 @@ export function PayrollReport() {
 }
 
 export function AttendanceSummaryReport() {
+  const { employees, attendanceRecords } = useReportsData();
   const grouped = employees.map((employee) => {
     const records = attendanceRecords.filter((row) => row.employeeId === employee.id);
     const present = records.filter((r) => r.status === "present").length;
@@ -215,6 +246,7 @@ export function AttendanceSummaryReport() {
 }
 
 export function StockMovementReport() {
+  const { stockRequests, purchaseOrders, stockItems } = useReportsData();
   return (
     <ReportShell
       title="Stock Movement Report"
@@ -223,17 +255,18 @@ export function StockMovementReport() {
       kpis={[
         ["Total Requests", stockRequests.length],
         ["Total PO Value", formatCurrency(purchaseOrders.reduce((s, p) => s + p.grandTotal, 0))],
-        ["Items Received", purchaseOrders.reduce((s, p) => s + p.lines.reduce((x, l) => x + l.receivedQuantity, 0), 0)],
+        ["Items Received", purchaseOrders.reduce((s, p) => s + p.lines.reduce((x: number, l: any) => x + l.receivedQuantity, 0), 0)],
         ["Pending Deliveries", purchaseOrders.filter((p) => p.status !== "completed").length],
       ]}
       chartData={purchaseOrders.map((po) => ({ name: po.issueDate.slice(0, 7), value: po.grandTotal }))}
-      secondaryChartData={stockItems.slice(0, 10).map((item) => ({ name: item.name, value: stockRequests.flatMap((r) => r.lines).filter((l) => l.itemId === item.id).reduce((s, l) => s + l.quantity, 0) }))}
-      rows={stockRequests.flatMap((request) => request.lines.map((line) => ({ a: line.itemName, b: request.site, c: "request", d: line.quantity, e: request.requestDate, f: request.code })))}
+      secondaryChartData={stockItems.slice(0, 10).map((item) => ({ name: item.name, value: stockRequests.flatMap((r) => r.lines).filter((l: any) => l.itemId === item.id).reduce((s: number, l: any) => s + l.quantity, 0) }))}
+      rows={stockRequests.flatMap((request) => request.lines.map((line: any) => ({ a: line.itemName, b: request.site, c: "request", d: line.quantity, e: request.requestDate, f: request.code })))}
     />
   );
 }
 
 export function SupplierPerformanceReport() {
+  const { suppliers, purchaseOrders } = useReportsData();
   const totalPo = purchaseOrders.reduce((s, p) => s + p.grandTotal, 0);
   return (
     <ReportShell
@@ -249,6 +282,7 @@ export function SupplierPerformanceReport() {
 }
 
 export function VehicleMaintenanceReport() {
+  const { vehicles, maintenanceLogs, fuelLogs } = useReportsData();
   return (
     <ReportShell
       title="Vehicle Maintenance Report"
@@ -263,6 +297,9 @@ export function VehicleMaintenanceReport() {
 }
 
 export function ProjectPnlReport() {
+  const { finance } = useReportsData();
+  const clientPayments = finance.payments;
+  const projectExpenses = finance.expenses;
   const { role } = useCurrentUser();
   if (!["accountant", "finance_manager", "super_admin"].includes(role ?? "")) {
     return <EmptyState title="Access denied" description="Project P&L is visible to Accountant, Finance Manager, and Super Admin only." />;
@@ -285,6 +322,7 @@ export function ProjectPnlReport() {
 }
 
 export function DebtorAgingReport() {
+  const { debtorAgingRows } = useReportsData();
   return (
     <ReportShell
       title="Debtor Aging Report"

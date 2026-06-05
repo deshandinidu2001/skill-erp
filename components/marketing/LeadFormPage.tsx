@@ -1,6 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { Save } from "lucide-react";
 import type { SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
@@ -9,7 +10,7 @@ import { z } from "zod";
 import { FormField } from "@/components/forms/FormField";
 import { FormSection } from "@/components/forms/FormSection";
 import { PageHeader } from "@/components/shared/PageHeader";
-import { employees } from "@/services/mock/seed";
+import { getEmployees } from "@/services/api/client/hr.service";
 
 const leadSchema = z
   .object({
@@ -41,6 +42,7 @@ type LeadInput = z.input<typeof leadSchema>;
 type LeadValues = z.output<typeof leadSchema>;
 
 export function LeadFormPage() {
+  const { data: employees = [] } = useQuery({ queryKey: ["employees"], queryFn: getEmployees });
   const {
     register,
     handleSubmit,

@@ -11,7 +11,7 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { usePermission } from "@/hooks/usePermission";
 import { formatCurrency } from "@/lib/utils";
-import { getEstimations, markEstimationReady } from "@/services/mock/estimations.service";
+import { getEstimations, markEstimationReady } from "@/services/api/client/estimations.service";
 import type { Estimation } from "@/types";
 
 export function EstimationListPage() {

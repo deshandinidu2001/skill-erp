@@ -16,8 +16,8 @@ import { DataTable } from "@/components/tables/DataTable";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { usePermission } from "@/hooks/usePermission";
 import { formatCurrency } from "@/lib/utils";
-import { createFromQuotation } from "@/services/mock/projects.service";
-import { getQuotationById, getQuotations, markQuotationStatus } from "@/services/mock/quotations.service";
+import { createFromQuotation } from "@/services/api/client/projects.service";
+import { getQuotationById, getQuotations, markQuotationStatus } from "@/services/api/client/quotations.service";
 import type { Attachment, BoqLine, ClientResponse, Quotation } from "@/types";
 
 const tabs = ["Summary", "BOQ", "Versions", "Client Response", "Attachments", "Timeline"] as const;

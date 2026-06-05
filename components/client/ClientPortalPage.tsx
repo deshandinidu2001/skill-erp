@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { DataTable } from "@/components/tables/DataTable";
 import { formatCurrency } from "@/lib/utils";
-import { getClientPortal, submitClientQuotationResponse } from "@/services/mock/client-portal.service";
+import { getClientPortal, submitClientQuotationResponse } from "@/services/api/client/client-portal.service";
 import type { ColumnDef } from "@tanstack/react-table";
 
 type ClientPortal = Awaited<ReturnType<typeof getClientPortal>>;

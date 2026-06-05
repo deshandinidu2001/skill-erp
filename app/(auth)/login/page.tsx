@@ -7,16 +7,10 @@ import { Loader2 } from "lucide-react";
 import { Suspense, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { INTERNAL_ROLES, roleLabels } from "@/constants/roles";
-
-type InternalRole = (typeof INTERNAL_ROLES)[number];
 
 const loginSchema = z.object({
-  role: z.custom<InternalRole>(
-    (value): value is InternalRole =>
-      typeof value === "string" && INTERNAL_ROLES.some((role) => role === value),
-    "Select a valid role",
-  ),
+  email: z.string().email("Enter a valid email"),
+  password: z.string().min(1, "Enter your password"),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -32,7 +26,8 @@ function LoginForm() {
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      role: "super_admin",
+      email: "",
+      password: "",
     },
   });
 
@@ -71,7 +66,7 @@ function LoginForm() {
               SE
             </div>
             <h2 className="text-2xl font-semibold tracking-tight text-slate-950">Skill Engineering ERP</h2>
-            <p className="mt-1 text-sm text-slate-500">Select a role to enter the ERP demo.</p>
+            <p className="mt-1 text-sm text-slate-500">Sign in with your account credentials.</p>
           </div>
           {toast ? (
             <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
@@ -80,19 +75,25 @@ function LoginForm() {
           ) : null}
           <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4">
             <label className="grid gap-2 text-sm font-medium text-slate-700">
-              Role
-              <select
+              Email
+              <input
+                type="email"
                 className="h-11 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none focus:border-cyan-700 focus:ring-2 focus:ring-cyan-100"
-                {...register("role")}
-              >
-                {INTERNAL_ROLES.map((role) => (
-                  <option key={role} value={role}>
-                    {roleLabels[role]}
-                  </option>
-                ))}
-              </select>
-              {errors.role?.message ? (
-                <span className="text-xs font-medium text-red-600">{errors.role.message}</span>
+                {...register("email")}
+              />
+              {errors.email?.message ? (
+                <span className="text-xs font-medium text-red-600">{errors.email.message}</span>
+              ) : null}
+            </label>
+            <label className="grid gap-2 text-sm font-medium text-slate-700">
+              Password
+              <input
+                type="password"
+                className="h-11 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none focus:border-cyan-700 focus:ring-2 focus:ring-cyan-100"
+                {...register("password")}
+              />
+              {errors.password?.message ? (
+                <span className="text-xs font-medium text-red-600">{errors.password.message}</span>
               ) : null}
             </label>
             <button
@@ -104,9 +105,6 @@ function LoginForm() {
               Sign in
             </button>
           </form>
-          <div className="mt-6 rounded-md bg-slate-50 p-3 text-xs text-slate-600">
-            Password login is disabled for the mock ERP. Sessions are created from the selected role.
-          </div>
         </div>
       </section>
     </main>

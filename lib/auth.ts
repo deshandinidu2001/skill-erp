@@ -2,11 +2,11 @@ import type { NextAuthOptions } from "next-auth";
 import { getServerSession } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { z } from "zod";
-import { ROLES, roleLabels } from "@/constants/roles";
-import { users } from "@/services/mock/seed";
+import { createAdminClient } from "@/lib/supabase/server";
 
 const loginSchema = z.object({
-  role: z.enum(ROLES),
+  email: z.string().email(),
+  password: z.string().min(1),
 });
 
 const attempts = new Map<string, { count: number; resetAt: number }>();
@@ -23,9 +23,7 @@ function assertLoginRateLimit(ip: string) {
     attempts.set(ip, { count: 1, resetAt: now + 15 * 60_000 });
     return;
   }
-  if (current.count >= 5) {
-    throw new Error("Too many login attempts. Try again in 15 minutes.");
-  }
+  if (current.count >= 5) throw new Error("Too many login attempts. Try again in 15 minutes.");
   current.count += 1;
 }
 
@@ -42,34 +40,36 @@ export const authOptions: NextAuthOptions = {
     CredentialsProvider({
       name: "Credentials",
       credentials: {
-        role: { label: "Role", type: "text" },
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
       },
       async authorize(credentials, req) {
-        const parsed = loginSchema.safeParse(credentials);
         const ip = getIp(req);
         assertLoginRateLimit(ip);
-
+        const parsed = loginSchema.safeParse(credentials);
         if (!parsed.success) return null;
 
-        const user =
-          users.find((item) => item.role === parsed.data.role) ??
-          ({
-            id: `mock_${parsed.data.role}`,
-            name: roleLabels[parsed.data.role],
-            email: `${parsed.data.role}@skillengineering.lk`,
-            role: parsed.data.role,
-            clientToken:
-              parsed.data.role === "client_user" ? "portal-skill-demo-2026" : undefined,
-          } as const);
+        const supabase = createAdminClient();
+        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+          email: parsed.data.email,
+          password: parsed.data.password,
+        });
+        if (authError || !authData.user) return null;
 
-        if (!user) return null;
+        const { data: appUser } = await supabase
+          .from("app_users")
+          .select("id, full_name, role, is_active")
+          .eq("id", authData.user.id)
+          .single();
+        if (!appUser || !appUser.is_active) return null;
+
+        await supabase.from("app_users").update({ last_login_at: new Date().toISOString() }).eq("id", appUser.id);
 
         return {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          clientToken: user.clientToken,
+          id: appUser.id,
+          name: appUser.full_name,
+          email: parsed.data.email,
+          role: appUser.role,
         };
       },
     }),
@@ -92,6 +92,7 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
   },
+  secret: process.env.NEXTAUTH_SECRET,
 };
 
 export function getSession() {

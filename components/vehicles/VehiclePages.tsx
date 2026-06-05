@@ -18,7 +18,7 @@ import { FormField } from "@/components/forms/FormField";
 import { FormSection } from "@/components/forms/FormSection";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { formatCurrency } from "@/lib/utils";
-import { getVehicleById, getVehicles, requiresAssignmentWarning } from "@/services/mock/vehicles.service";
+import { getVehicleById, getVehicles, requiresAssignmentWarning } from "@/services/api/client/vehicles.service";
 import type { FuelLog, MaintenanceLog, MeterLog, Vehicle, VehicleAssignment } from "@/types";
 
 export function VehicleListPage() {

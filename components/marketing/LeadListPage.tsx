@@ -13,7 +13,7 @@ import { RowActionsMenu } from "@/components/tables/RowActionsMenu";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { usePermission } from "@/hooks/usePermission";
 import { formatCurrency } from "@/lib/utils";
-import { getLeads } from "@/services/mock/leads.service";
+import { getLeads } from "@/services/api/client/leads.service";
 import type { Lead, Priority, ProjectType } from "@/types";
 
 const priorities: Array<Priority | ""> = ["", "LOW", "MEDIUM", "HIGH", "URGENT"];

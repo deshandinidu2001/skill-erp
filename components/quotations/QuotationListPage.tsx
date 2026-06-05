@@ -12,7 +12,7 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { usePermission } from "@/hooks/usePermission";
 import { formatCurrency } from "@/lib/utils";
-import { duplicateQuotationVersion, getQuotations, markQuotationStatus } from "@/services/mock/quotations.service";
+import { duplicateQuotationVersion, getQuotations, markQuotationStatus } from "@/services/api/client/quotations.service";
 import type { Quotation } from "@/types";
 
 export function QuotationListPage() {

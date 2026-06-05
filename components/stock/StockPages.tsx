@@ -26,8 +26,8 @@ import {
   getStockRequests,
   getSuppliers,
   updateStockRequestStatus,
-} from "@/services/mock/stock.service";
-import { projects } from "@/services/mock/seed";
+} from "@/services/api/client/stock.service";
+import { getProjects } from "@/services/api/client/projects.service";
 import type { GoodsReceipt, InventoryBalance, PurchaseOrder, StockItem, StockRequest, StockRequestLine, Supplier } from "@/types";
 
 export function ItemMasterPage() {
@@ -101,14 +101,17 @@ export function StockRequestListPage() {
 export function StockRequestFormPage() {
   const queryClient = useQueryClient();
   const { data: items = [] } = useQuery({ queryKey: ["stock-items"], queryFn: getStockItems });
-  const [projectId, setProjectId] = useState(projects[0]?.project_id ?? "");
-  const [site, setSite] = useState(projects[0]?.site ?? "");
+  const { data: projects = [] } = useQuery({ queryKey: ["projects"], queryFn: () => getProjects() });
+  const [projectId, setProjectId] = useState("");
+  const [site, setSite] = useState("");
+  const selectedProjectId = projectId || projects[0]?.project_id || "";
+  const selectedSite = site || projects[0]?.site || "";
   const [requestDate, setRequestDate] = useState("2026-06-04");
   const [requiredByDate, setRequiredByDate] = useState("2026-06-08");
   const [lines, setLines] = useState<StockRequestLine[]>([]);
   const [toast, setToast] = useState<string | null>(null);
   const mutation = useMutation({
-    mutationFn: (status: "draft" | "submitted") => createStockRequest({ project_id: projectId, site, requestDate, requiredByDate, requestedBy: "Kasun Jayasinghe", lines }).then((row) => updateStockRequestStatus(row.id, status)),
+    mutationFn: (status: "draft" | "submitted") => createStockRequest({ project_id: selectedProjectId, site: selectedSite, requestDate, requiredByDate, requestedBy: "Kasun Jayasinghe", lines }).then((row) => updateStockRequestStatus(row.id, status)),
     onSuccess: () => { setToast("Stock request saved."); queryClient.invalidateQueries({ queryKey: ["stock-requests"] }); },
     onError: (error) => setToast((error as Error).message),
   });
@@ -122,8 +125,8 @@ export function StockRequestFormPage() {
       {toast ? <div className="rounded-md border border-cyan-200 bg-cyan-50 p-3 text-sm font-medium text-cyan-800">{toast}</div> : null}
       <PageHeader title="Create Stock Request" description="Project, site, required date, and line quantities are validated before submit." />
       <section className="grid gap-4 rounded-md border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-3">
-        <Select label="Project" value={projectId} options={projects.map((p) => p.project_id)} onChange={(value) => { const project = projects.find((p) => p.project_id === value); setProjectId(value); setSite(project?.site ?? ""); }} />
-        <Input label="Site" value={site} type="text" onChange={setSite} />
+        <Select label="Project" value={selectedProjectId} options={projects.map((p) => p.project_id)} onChange={(value) => { const project = projects.find((p) => p.project_id === value); setProjectId(value); setSite(project?.site ?? ""); }} />
+        <Input label="Site" value={selectedSite} type="text" onChange={setSite} />
         <Input label="Request Date" value={requestDate} type="date" onChange={setRequestDate} />
         <Input label="Required By" value={requiredByDate} type="date" onChange={setRequiredByDate} />
         <Input label="Requested By" value="Kasun Jayasinghe" type="text" onChange={() => undefined} />

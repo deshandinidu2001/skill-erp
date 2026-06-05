@@ -1,10 +1,11 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
+import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { ROLES, roleLabels, type Role } from "@/constants/roles";
 import { PERMISSIONS } from "@/lib/permissions";
-import { users } from "@/services/mock/seed";
+import { getUsers } from "@/services/api/client/users.service";
 import { DataTable } from "@/components/tables/DataTable";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
@@ -17,15 +18,6 @@ type AdminUser = {
   lastLogin: string;
   created: string;
 };
-
-const adminUsers: AdminUser[] = users.map((user, index) => ({
-  name: user.name,
-  email: user.email,
-  role: user.role,
-  status: "active",
-  lastLogin: `2026-06-0${index + 2}`,
-  created: "2026-01-10",
-}));
 
 const roleDescriptions: Record<Role, string> = Object.fromEntries(
   ROLES.map((role) => [role, `${roleLabels[role]} access profile for Skill Engineering ERP.`]),
@@ -53,6 +45,15 @@ const auditRows = [
 
 export function AdminUsersPage() {
   const [toast, setToast] = useState<string | null>(null);
+  const { data: users = [], isLoading } = useQuery({ queryKey: ["admin-users"], queryFn: getUsers });
+  const adminUsers: AdminUser[] = users.map((user) => ({
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    status: "active",
+    lastLogin: "-",
+    created: "-",
+  }));
   const columns: ColumnDef<AdminUser>[] = [
     { accessorKey: "name", header: "Name" },
     { accessorKey: "email", header: "Email" },
@@ -83,7 +84,7 @@ export function AdminUsersPage() {
           <select className="h-10 rounded-md border border-slate-300 px-3 text-sm"><option>active</option><option>inactive</option></select>
         </div>
       </section>
-      <DataTable columns={columns} data={adminUsers} enableExport />
+      <DataTable columns={columns} data={adminUsers} loading={isLoading} enableExport />
       <p className="text-sm text-slate-500">Users cannot be deleted; deactivate instead.</p>
     </div>
   );

@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSession } from "@/lib/auth";
 import { hasModuleAccess } from "@/lib/permissions";
-import { employees, leads, projects } from "@/services/mock/seed";
+import { getEmployees } from "@/services/api/employees.service";
+import { getLeads } from "@/services/api/leads.service";
+import { getProjects } from "@/services/api/projects.service";
 
 const searchSchema = z.object({
   q: z.string().trim().max(80).default(""),
@@ -20,6 +22,7 @@ export async function GET(request: Request) {
   const { q } = searchSchema.parse({ q: searchParams.get("q") ?? "" });
   const query = q.toLowerCase();
 
+  const [leads, projects, employees] = await Promise.all([getLeads(), getProjects(), getEmployees()]);
   const results = [
     ...leads.map((item) => ({ type: "lead", label: item.title, href: `/marketing/leads/${item.code}` })),
     ...projects.map((item) => ({ type: "project", label: item.name, href: `/projects/${item.code}` })),

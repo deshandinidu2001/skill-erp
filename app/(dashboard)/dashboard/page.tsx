@@ -2,10 +2,14 @@ import { BarChart3, FolderKanban, Megaphone, Package } from "lucide-react";
 import { StatCard } from "@/components/cards/StatCard";
 import { EntityCard } from "@/components/cards/EntityCard";
 import { PageHeader } from "@/components/shared/PageHeader";
-import { leads, projects } from "@/services/mock/seed";
+import { getLeads } from "@/services/api/leads.service";
+import { getProjects } from "@/services/api/projects.service";
 import { formatCurrency } from "@/lib/utils";
 
-export default function DashboardPage() {
+export const dynamic = "force-dynamic";
+
+export default async function DashboardPage() {
+  const [leads, projects] = await Promise.all([getLeads(), getProjects()]);
   const pipeline = leads.reduce((total, lead) => total + lead.value, 0);
 
   return (

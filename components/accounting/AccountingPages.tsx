@@ -7,8 +7,9 @@ import { useState } from "react";
 import { DataTable } from "@/components/tables/DataTable";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatCard } from "@/components/cards/StatCard";
-import { projects } from "@/services/mock/seed";
+import { getProjects } from "@/services/api/client/projects.service";
 import {
+  type LedgerRow,
   getAccounts,
   getCashBook,
   getCustomerPayments,
@@ -16,10 +17,8 @@ import {
   getGeneralLedger,
   getPnl,
   getProjectLedger,
-} from "@/services/mock/accounting-core.service";
+} from "@/services/api/client/accounting-core.service";
 import { formatCurrency } from "@/lib/utils";
-
-type LedgerRow = Awaited<ReturnType<typeof getGeneralLedger>>[number];
 
 export function ChartOfAccountsPage() {
   const { data = [] } = useQuery({ queryKey: ["accounts"], queryFn: getAccounts });
@@ -27,9 +26,11 @@ export function ChartOfAccountsPage() {
 }
 
 export function ProjectLedgerPage() {
-  const [projectId, setProjectId] = useState(projects[0]?.project_id ?? "");
-  const { data = [] } = useQuery({ queryKey: ["project-ledger", projectId], queryFn: () => getProjectLedger(projectId), enabled: Boolean(projectId) });
-  return <LedgerShell title="Project Ledger" description="Project-specific ledger with balanced posted journal lines." rows={data} selector={<Select label="Project" value={projectId} options={projects.map((p) => p.project_id)} onChange={setProjectId} />} />;
+  const { data: projects = [] } = useQuery({ queryKey: ["projects"], queryFn: () => getProjects() });
+  const [projectId, setProjectId] = useState("");
+  const selectedProjectId = projectId || projects[0]?.project_id || "";
+  const { data = [] } = useQuery({ queryKey: ["project-ledger", selectedProjectId], queryFn: () => getProjectLedger(selectedProjectId), enabled: Boolean(selectedProjectId) });
+  return <LedgerShell title="Project Ledger" description="Project-specific ledger with balanced posted journal lines." rows={data} selector={<Select label="Project" value={selectedProjectId} options={projects.map((p) => p.project_id)} onChange={setProjectId} />} />;
 }
 
 export function GeneralLedgerPage() {
@@ -84,6 +85,7 @@ export function CustomerPaymentsPage() {
 }
 
 export function PnlPage() {
+  const { data: projects = [] } = useQuery({ queryKey: ["projects"], queryFn: () => getProjects() });
   const [projectId, setProjectId] = useState("");
   const { data } = useQuery({ queryKey: ["pnl", projectId], queryFn: () => getPnl(projectId || undefined) });
   return <div className="grid gap-6"><PageHeader title="P&L Report" description="Income, expenses, and net profit by period." /><Select label="Project" value={projectId} options={["", ...projects.map((p) => p.project_id)]} onChange={setProjectId} /><div className="grid gap-4 md:grid-cols-3"><StatCard title="Income" value={formatCurrency(data?.income.reduce((s, r) => s + r.amount, 0) ?? 0)} /><StatCard title="Expenses" value={formatCurrency(data?.expenses.reduce((s, r) => s + r.amount, 0) ?? 0)} /><StatCard title="Net Profit/Loss" value={formatCurrency(data?.net ?? 0)} /></div><section className="h-80 rounded-md border border-slate-200 bg-white p-5 shadow-sm"><ResponsiveContainer width="100%" height="100%"><BarChart data={data?.chart ?? []}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="month" /><YAxis /><Tooltip /><Bar dataKey="income" fill="#0e7490" /><Bar dataKey="expense" fill="#f97316" /></BarChart></ResponsiveContainer></section><div className="grid gap-4 md:grid-cols-2"><AccountSummary title="Income" rows={data?.income ?? []} /><AccountSummary title="Expenses" rows={data?.expenses ?? []} /></div></div>;

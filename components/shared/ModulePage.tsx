@@ -9,13 +9,13 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { StatCard } from "@/components/cards/StatCard";
 import { formatCurrency } from "@/lib/utils";
-import { getEstimations } from "@/services/mock/estimations.service";
-import { getLeads } from "@/services/mock/leads.service";
-import { getProjects } from "@/services/mock/projects.service";
-import { getQuotations } from "@/services/mock/quotations.service";
-import { getEmployees } from "@/services/mock/hr.service";
-import { getVehicles } from "@/services/mock/vehicles.service";
-import { getInventory, getPurchaseOrders, getStockRequests } from "@/services/mock/stock.service";
+import { getEstimations } from "@/services/api/client/estimations.service";
+import { getLeads } from "@/services/api/client/leads.service";
+import { getProjects } from "@/services/api/client/projects.service";
+import { getQuotations } from "@/services/api/client/quotations.service";
+import { getEmployees } from "@/services/api/client/hr.service";
+import { getVehicles } from "@/services/api/client/vehicles.service";
+import { getInventory, getPurchaseOrders, getStockRequests } from "@/services/api/client/stock.service";
 import type { Employee, Estimation, Lead, Project, Quotation, Vehicle } from "@/types";
 
 type ModuleKind =

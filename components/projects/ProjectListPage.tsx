@@ -12,7 +12,7 @@ import { DataTable } from "@/components/tables/DataTable";
 import { RowActionsMenu } from "@/components/tables/RowActionsMenu";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { formatCurrency } from "@/lib/utils";
-import { getProjects } from "@/services/mock/projects.service";
+import { getProjects } from "@/services/api/client/projects.service";
 import type { Project } from "@/types";
 
 export function ProjectListPage() {

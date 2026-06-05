@@ -28,7 +28,7 @@ import {
   getPayrollBatches,
   saveAttendance,
   updatePayrollStatus,
-} from "@/services/mock/hr.service";
+} from "@/services/api/client/hr.service";
 import type { AttendanceRecord, Employee, PayrollBatch } from "@/types";
 
 export function EmployeeListPage() {
