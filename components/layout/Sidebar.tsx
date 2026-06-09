@@ -132,11 +132,11 @@ export function Sidebar({ role, collapsed, onToggle }: { role?: Role; collapsed:
   return (
     <aside
       className={cn(
-        "hidden border-r border-slate-200 bg-white transition-all lg:flex lg:flex-col",
+        "hidden h-screen shrink-0 overflow-hidden border-r border-slate-200 bg-white transition-all lg:flex lg:flex-col",
         collapsed ? "lg:w-20" : "lg:w-72",
       )}
     >
-      <div className="flex h-16 items-center justify-between border-b border-slate-200 px-4">
+      <div className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 px-4">
         <Link href="/dashboard" className="flex items-center gap-3 overflow-hidden">
           <div className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-cyan-700 text-sm font-bold text-white">
             SE
@@ -157,7 +157,7 @@ export function Sidebar({ role, collapsed, onToggle }: { role?: Role; collapsed:
           <ClipboardList className="h-4 w-4" />
         </button>
       </div>
-      <div className="flex-1 overflow-y-auto p-3">
+      <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto overscroll-contain p-3">
         <nav className="grid gap-1">
           {allowed.map((item) => {
             const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
@@ -203,7 +203,7 @@ export function Sidebar({ role, collapsed, onToggle }: { role?: Role; collapsed:
         </nav>
       </div>
       {!collapsed ? (
-        <div className="border-t border-slate-200 p-4 text-xs text-slate-500">
+        <div className="shrink-0 border-t border-slate-200 p-4 text-xs text-slate-500">
           Current access: {role ? roleLabels[role] : "Loading"}
         </div>
       ) : null}

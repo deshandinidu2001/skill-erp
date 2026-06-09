@@ -1,4 +1,4 @@
-import { apiGet, apiPost } from "@/services/api/client/http";
+import { apiGet, apiPost, asArray } from "@/services/api/client/http";
 import type { FuelLog, MaintenanceLog, MeterLog, Vehicle, VehicleAssignment, FilterParams } from "@/types";
 
 export type VehicleDetail = {
@@ -10,9 +10,9 @@ export type VehicleDetail = {
   timeline: Array<{ actor: string; action: string; timestamp: string; summary: string }>;
 };
 
-export function getVehicles(params?: FilterParams): Promise<Vehicle[]> {
+export async function getVehicles(params?: FilterParams): Promise<Vehicle[]> {
   const qs = params ? `?${new URLSearchParams(params as Record<string, string>)}` : "";
-  return apiGet(`/api/vehicles${qs}`);
+  return asArray<Vehicle>(await apiGet(`/api/vehicles${qs}`));
 }
 
 export function getVehicleById(id: string) {

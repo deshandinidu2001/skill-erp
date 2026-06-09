@@ -5,14 +5,14 @@ import { mapInventory, mapStockItem, mapSupplier } from "@/services/api/mappers"
 
 export async function getInventory() {
   const supabase = createAdminClient();
-  const { data, error } = await supabase.from("site_inventory").select("*, sites(*), materials(*, units_of_measure(*))").order("last_updated", { ascending: false });
+  const { data, error } = await supabase.from("site_inventory").select("*, sites(*), materials(*, units_of_measure(*))").order("id", { ascending: false });
   if (error) throw new Error(error.message);
   return (data ?? []).map((row) => mapInventory(row));
 }
 
 export async function getStockItems() {
   const supabase = createAdminClient();
-  const { data, error } = await supabase.from("materials").select("*, units_of_measure(*), suppliers!preferred_supplier_id(*)").order("name");
+  const { data, error } = await supabase.from("materials").select("*, units_of_measure(*)").order("name");
   if (error) throw new Error(error.message);
   return (data ?? []).map((row) => mapStockItem(row));
 }

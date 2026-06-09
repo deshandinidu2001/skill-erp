@@ -76,7 +76,7 @@ const employeeSchema = z.object({
   fullName: z.string().min(2, "Full name is required"),
   nic: z.string().min(4, "NIC is required"),
   phone: z.string().min(3, "Phone is required"),
-  email: z.string().email().optional().or(z.literal("")),
+  email: z.preprocess((val) => val === "" ? undefined : val, z.string().email("Enter a valid email").optional()),
   address: z.string().optional(),
   department: z.string().min(1, "Department is required"),
   position: z.string().min(1, "Position is required"),

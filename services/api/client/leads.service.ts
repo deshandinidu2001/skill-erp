@@ -1,4 +1,4 @@
-import { apiGet, apiPatch } from "@/services/api/client/http";
+import { apiGet, apiPatch, apiPost, asArray } from "@/services/api/client/http";
 import type { ActivityItem, Attachment, CommunicationEntry, EntityStatus, Estimation, FilterParams, Lead, Note, Quotation } from "@/types";
 
 export type LeadDetail = {
@@ -11,9 +11,9 @@ export type LeadDetail = {
   timeline: ActivityItem[];
 };
 
-export function getLeads(params?: FilterParams): Promise<Lead[]> {
+export async function getLeads(params?: FilterParams): Promise<Lead[]> {
   const qs = params ? `?${new URLSearchParams(params as Record<string, string>)}` : "";
-  return apiGet(`/api/leads${qs}`);
+  return asArray<Lead>(await apiGet(`/api/leads${qs}`));
 }
 
 export function getLeadById(id: string): Promise<Lead | undefined> {
@@ -30,4 +30,8 @@ export function sendLeadToQs(id: string) {
 
 export function updateLeadStatus(id: string, status: EntityStatus, reason?: string) {
   return apiPatch(`/api/leads/${id}`, { status, reason });
+}
+
+export function createLead(input: unknown): Promise<Lead> {
+  return apiPost("/api/leads", input);
 }

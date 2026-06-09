@@ -17,7 +17,7 @@ export async function getGeneralLedger(accountCode?: string) {
   const { data, error } = await supabase
     .from("journal_lines")
     .select("*, accounts(*), journal_entries(*)")
-    .order("created_at", { ascending: false });
+    .order("id", { ascending: false });
   if (error) throw new Error(error.message);
   let balance = 0;
   return ((data ?? []) as any[])
@@ -25,15 +25,15 @@ export async function getGeneralLedger(accountCode?: string) {
     .map((line) => {
       balance += Number(line.debit ?? 0) - Number(line.credit ?? 0);
       return {
-        date: String(line.journal_entries?.transaction_date ?? ""),
-        entryCode: String(line.journal_entries?.reference_no ?? ""),
-        description: String(line.journal_entries?.description ?? ""),
+        date: String(line.journal_entries?.entry_date ?? ""),
+        entryCode: String(line.journal_entries?.entry_no ?? ""),
+        description: String(line.description ?? line.journal_entries?.memo ?? ""),
         category: String(line.accounts?.type ?? ""),
         debit: Number(line.debit ?? 0),
         credit: Number(line.credit ?? 0),
         balance,
         sourceReference: String(line.journal_entries?.id ?? ""),
-        sourceModule: String(line.journal_entries?.source_module ?? ""),
+        sourceModule: String(line.journal_entries?.source ?? ""),
         accountCode: String(line.accounts?.code ?? ""),
         accountName: String(line.accounts?.name ?? ""),
       };
@@ -45,22 +45,21 @@ export async function getProjectLedger(project_id: string) {
   const { data, error } = await supabase
     .from("journal_lines")
     .select("*, accounts(*), journal_entries(*)")
-    .eq("journal_entries.project_id", Number(project_id))
-    .order("created_at", { ascending: false });
+    .order("id", { ascending: false });
   if (error) throw new Error(error.message);
   let balance = 0;
   return ((data ?? []) as any[]).map((line) => {
     balance += Number(line.debit ?? 0) - Number(line.credit ?? 0);
     return {
-      date: String(line.journal_entries?.transaction_date ?? ""),
-      entryCode: String(line.journal_entries?.reference_no ?? ""),
-      description: String(line.journal_entries?.description ?? ""),
+      date: String(line.journal_entries?.entry_date ?? ""),
+      entryCode: String(line.journal_entries?.entry_no ?? ""),
+      description: String(line.description ?? line.journal_entries?.memo ?? ""),
       category: String(line.accounts?.type ?? ""),
       debit: Number(line.debit ?? 0),
       credit: Number(line.credit ?? 0),
       balance,
       sourceReference: String(line.journal_entries?.id ?? ""),
-      sourceModule: String(line.journal_entries?.source_module ?? ""),
+      sourceModule: String(line.journal_entries?.source ?? ""),
       accountCode: String(line.accounts?.code ?? ""),
       accountName: String(line.accounts?.name ?? ""),
     };
@@ -103,11 +102,11 @@ export async function getPnl(project_id?: string) {
 
 export async function getDebtorAging() {
   const supabase = createAdminClient();
-  const { data, error } = await supabase.from("project_milestones").select("*, projects(*, customers!client_id(*))").is("completed_at", null);
+  const { data, error } = await supabase.from("project_milestones").select("*, projects(*, customers(*))").is("completed_at", null);
   if (error) throw new Error(error.message);
   return ((data ?? []) as any[]).map((row) => ({
-    project: row.projects?.project_name ?? "",
-    customer: row.projects?.customers?.display_name ?? "",
+    project: row.projects?.name ?? "",
+    customer: row.projects?.customers?.name ?? "",
     milestone: row.title,
     dueDate: row.due_date,
     dueAmount: Number(row.amount_due ?? 0),

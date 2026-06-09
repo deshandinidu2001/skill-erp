@@ -1,0 +1,337 @@
+Skill Engineering ERP - Complete Project Data Pipeline
+
+Purpose
+This file explains how the system should be used from the first customer enquiry to project closeout. It also gives sample data to enter when testing every main database area: auth/app users, customers, leads, QS, quotations, projects, sites, stock, HR, vehicles, accounting, files, client portal, and audit records.
+
+1. Start With Demo Login
+- Open /login.
+- Select the role you want to test from the dropdown.
+- Click Start demo.
+- Use Super Admin to see all modules. Use role-specific logins to test permissions.
+
+Recommended role tests:
+- Marketing Executive: create and update leads.
+- QS Engineer: prepare estimations and BOQ lines.
+- Project Manager: manage projects, teams, site updates, expenses, and stock requests.
+- Stock Manager: approve stock requests and create purchase orders.
+- Store Keeper: receive goods and update site inventory.
+- HR Manager: employees, attendance, leave, payroll.
+- Vehicle Manager: vehicle assignments, fuel, meter, maintenance.
+- Accountant or Finance Manager: payments, expenses, journal entries, reports.
+
+2. Customer And Lead Intake
+Sample customer:
+- Customer code: CUS-001
+- Name: Ceylon Logistics PLC
+- Contact person: Anura Silva
+- Phone: +94 77 123 4567
+- Email: anura@ceylonlogistics.lk
+- Location: Colombo 02
+
+Sample lead:
+- Lead code: LEAD-1001
+- Customer: Ceylon Logistics PLC
+- Project title: Warehouse mezzanine extension
+- Project type: Construction only
+- Requirement: Extend existing warehouse mezzanine without interrupting operations.
+- Drawing requirement: As-built review and fabrication drawings.
+- Construction requirement: Night-shift installation preferred.
+- Estimated budget: LKR 18,500,000
+- Priority: High
+- Status path: new -> under_review -> qs_estimation_pending
+
+Tables covered:
+- customers
+- leads
+- lead_communications
+- lead_status_logs
+- file_attachments
+- audit_logs
+
+3. QS Estimation And BOQ
+Sample estimation:
+- Estimation code: EST-2001
+- Lead: LEAD-1001
+- Material cost: LKR 9,800,000
+- Labour cost: LKR 3,200,000
+- Equipment cost: LKR 950,000
+- Overhead cost: LKR 650,000
+- Profit margin: 18%
+- Grand total: LKR 17,228,000
+- Status path: draft -> in_progress -> ready_for_quotation
+
+Sample BOQ line:
+- Section: Steel frame
+- Item: Universal beams
+- Description: Supply and install structural steel beams.
+- Quantity: 12
+- Unit: t
+- Unit price: LKR 620,000
+
+Tables covered:
+- estimations
+- estimation_lines
+- boqs
+- boq_sections
+- boq_items
+- boq_item_breakdowns
+- bsr_rates
+- bsr_analysis
+- boq_import_mappings
+- material_aliases
+- unit_aliases
+
+4. Quotation And Client Approval
+Sample quotation:
+- Quotation code: QUO-3001
+- Lead: LEAD-1001
+- Version: 1
+- Subtotal: LKR 17,228,000
+- Tax: LKR 3,101,040
+- Grand total: LKR 19,300,000
+- Valid until: 2026-06-30
+- Payment terms: 40% advance, 50% progress, 10% handover
+- Status path: draft -> under_review -> client_sent -> approved
+
+Client response:
+- Decision: approved
+- Message: Approved subject to staged handover and night-work permit.
+
+Tables covered:
+- quotations
+- client_access_tokens
+- client_responses
+- taxes
+- tax_entries
+
+5. Convert Approved Quotation To Project
+Sample ongoing project:
+- Project code: PRJ-4001
+- Name: Warehouse mezzanine extension
+- Customer: Ceylon Logistics PLC
+- Site: Colombo 02 warehouse
+- Manager: Kasun Jayasinghe
+- Budget: LKR 19,300,000
+- Start date: 2026-06-01
+- End date: 2026-08-15
+- Progress: 42%
+- Status path: created -> assigned -> in_progress
+
+Sample completed project:
+- Project code: PRJ-4004
+- Name: Hotel service yard upgrade
+- Customer: Northshore Developers
+- Budget: LKR 28,400,000
+- Start date: 2026-04-10
+- End date: 2026-06-01
+- Progress: 100%
+- Status path: created -> assigned -> in_progress -> completed
+
+Sample closed project:
+- Project code: PRJ-4005
+- Name: Racking safety modifications
+- Customer: Ceylon Logistics PLC
+- Budget: LKR 5,400,000
+- Status path: created -> assigned -> in_progress -> completed -> closed
+
+Tables covered:
+- projects
+- sites
+- project_status_logs
+- project_activity_logs
+- project_milestones
+- project_team_assignments
+- site_progress_updates
+
+6. HR And Site Workforce
+Sample departments:
+- Administration
+- Marketing
+- Quantity Surveying
+- Projects
+- Stores
+- Finance
+- Human Resources
+- Vehicle Management
+
+Sample employees:
+- EMP-001, Kasun Jayasinghe, Projects, Project Manager, monthly, LKR 220,000
+- EMP-003, Sajith Kumara, QS, QS Engineer, monthly, LKR 180,000
+- EMP-004, Malith Silva, Stock, Store Keeper, daily, LKR 4,500
+
+Sample attendance:
+- EMP-001, 2026-06-04, present, Colombo 02
+- EMP-004, 2026-06-04, present, Galle
+- EMP-003, 2026-06-04, leave, Head Office
+
+Sample payroll:
+- Batch: PAY-2026-05-HO
+- Period: 2026-05-01 to 2026-05-31
+- Status path: draft -> prepared -> approved -> processed -> paid -> locked
+
+Tables covered:
+- departments
+- positions
+- work_roles
+- app_users
+- employees
+- employee_site_assignments
+- attendance
+- leave_requests
+- payroll_batches
+- payroll_lines
+
+7. Stock, Purchasing, Goods Receipt, And Inventory
+Sample stock request:
+- Request code: SR-5001
+- Project: PRJ-4001
+- Site: Colombo 02 warehouse
+- Required date: 2026-06-08
+- Item: GI pipe 2 inch
+- Quantity: 96 lengths
+- Status path: draft -> submitted -> qs_review -> approved -> converted_to_po
+
+Sample purchase order:
+- PO code: PO-6001
+- Supplier: Lanka Steel Traders
+- Linked request: SR-5001
+- Item: GI pipe 2 inch
+- Quantity: 96 lengths
+- Unit price: LKR 7,200
+- Status path: draft -> pending_approval -> approved -> issued
+
+Sample goods receipt:
+- GRN code: GR-7001
+- PO: PO-6002
+- Received by: Malith Silva
+- Received date: 2026-06-02
+- Item: Cement 50kg
+- Ordered: 240 bags
+- Received: 200 bags
+- Damaged: 0
+
+Tables covered:
+- suppliers
+- supplier_performance
+- units_of_measure
+- materials
+- stock_requests
+- stock_request_items
+- purchase_orders
+- purchase_order_items
+- purchase_approvals
+- goods_receipts
+- goods_receipt_items
+- site_inventory
+- stock_movements
+
+8. Vehicle Management
+Sample vehicle:
+- Vehicle code: VEH-001
+- Registration: CAB-2841
+- Category: truck
+- Ownership: owned
+- Status: assigned
+- Meter: 84,210
+- Project: PRJ-4001
+
+Sample logs:
+- Meter log: 2026-06-04, 84,210, logged by Kasun Jayasinghe
+- Fuel log: 2026-06-03, 48 liters, LKR 17,800
+- Maintenance log: VEH-003, brake repair, LKR 48,500
+
+Tables covered:
+- vehicles
+- vehicle_assignments
+- vehicle_meter_logs
+- vehicle_fuel_logs
+- vehicle_maintenance_logs
+
+9. Project Expenses, Petty Cash, Client Payments, And Accounting
+Sample project expense:
+- Expense code: EXP-1001
+- Project: PRJ-4001
+- Category: material
+- Vendor: Lanka Steel Traders
+- Date: 2026-06-02
+- Amount: LKR 2,450,000
+- Approval status: approved
+
+Sample petty cash:
+- Project: PRJ-4001
+- Employee: Kasun Jayasinghe
+- Issued: LKR 50,000
+- Allocated: LKR 75,000
+- Settled: LKR 12,000
+- Status: pending
+
+Sample client payment:
+- Payment code: PAY-1001
+- Project: PRJ-4001
+- Customer: Ceylon Logistics PLC
+- Date: 2026-06-01
+- Amount: LKR 7,720,000
+- Method: Bank transfer
+- Milestone: Advance
+
+Sample journal entries:
+- JE-1001: debit Bank Current Account LKR 7,720,000, credit Accounts Receivable LKR 7,720,000.
+- JE-1002: debit Material Expense LKR 2,450,000, credit Bank Current Account LKR 2,450,000.
+
+Tables covered:
+- accounts
+- bank_accounts
+- expense_categories
+- project_expenses
+- petty_cash
+- client_payments
+- journal_entries
+- journal_lines
+
+10. Files, Client Portal, Reporting, And Audit
+Sample files:
+- Lead attachment: warehouse-existing-layout.xlsx
+- Quotation attachment: Quotation-QUO-3003-v1.pdf
+- Project attachment: PRJ-4004-completion-certificate.pdf
+
+Sample client portal token:
+- Token: portal-skill-demo-2026
+- Project: PRJ-4001
+- Expires: 2026-12-31
+- Active: true
+
+Sample audit log:
+- Actor: Super Admin
+- Action: create
+- Entity: project
+- Entity ID: PRJ-4001
+- Metadata: quotation converted to project
+
+Tables covered:
+- file_attachments
+- client_access_tokens
+- client_responses
+- audit_logs
+
+11. End-To-End Test Checklist
+1. Login as Marketing Executive and create a customer lead.
+2. Move lead to under_review, then send to QS.
+3. Login as QS Engineer and create estimation lines and BOQ items.
+4. Generate quotation and submit it for review.
+5. Login as Super Admin or Marketing Manager and mark quotation client approved.
+6. Convert quotation to project.
+7. Assign manager, technical officer, site team, and vehicle.
+8. Add site progress updates and upload project files.
+9. Raise a stock request from the project.
+10. Approve the request, create a purchase order, and receive goods.
+11. Confirm site inventory and stock movements.
+12. Add attendance and payroll records for site staff.
+13. Add project expenses and petty cash.
+14. Record client payments and posted journal entries.
+15. Move project to completed only when work and handover documents are done.
+16. Move project to closed only when payments, expenses, inventory, payroll, and reports are reconciled.
+
+12. Database Table Coverage Summary
+The sample flow above covers these public schema tables:
+departments, positions, work_roles, app_users, employees, customers, leads, lead_communications, lead_status_logs, estimations, estimation_lines, projects, quotations, sites, suppliers, units_of_measure, materials, site_inventory, stock_requests, stock_request_items, purchase_orders, purchase_order_items, goods_receipts, goods_receipt_items, stock_movements, attendance, leave_requests, payroll_batches, payroll_lines, vehicles, vehicle_assignments, vehicle_fuel_logs, vehicle_maintenance_logs, vehicle_meter_logs, accounts, journal_entries, journal_lines, bank_accounts, expense_categories, project_expenses, petty_cash, client_payments, taxes, tax_entries, file_attachments, client_access_tokens, client_responses, audit_logs, boq_import_mappings, boqs, boq_sections, boq_items, boq_item_breakdowns, bsr_rates, bsr_analysis, material_aliases, unit_aliases, project_activity_logs, project_milestones, project_status_logs, project_team_assignments, site_progress_updates, purchase_approvals, supplier_performance, employee_site_assignments.
+

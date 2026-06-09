@@ -16,9 +16,8 @@ const rowSchema = z.object({
 
 export async function getAttendance(site?: string, date?: string) {
   const supabase = createAdminClient();
-  let query = supabase.from("attendance").select("*, employees(*), sites(*)").order("attendance_date", { ascending: false });
-  if (site) query = query.eq("site_id", Number(site));
-  if (date) query = query.eq("attendance_date", date);
+  let query = supabase.from("attendance").select("*, employees(*)").order("work_date", { ascending: false });
+  if (date) query = query.eq("work_date", date);
   const { data, error } = await query;
   if (error) throw new Error(error.message);
   return (data ?? []).map((row) => mapAttendance(row));
@@ -28,8 +27,8 @@ export async function saveAttendance(rows: unknown, override = false, userId?: s
   const parsed = z.array(rowSchema).parse(rows);
   if (!override && parsed.some((row) => Date.now() - new Date(row.date).getTime() > 2 * 24 * 60 * 60 * 1000)) throw new Error("Cannot edit attendance more than two days past without HR manager override.");
   const supabase = createAdminClient();
-  const upserts = parsed.map((row) => ({ employee_id: Number(row.employeeId), site_id: row.site_id, attendance_date: row.date, status: row.status, shift: row.shift, remarks: row.remarks, recorded_by: userId }));
-  const { data, error } = await supabase.from("attendance").upsert(upserts, { onConflict: "employee_id,attendance_date" }).select("*, employees(*), sites(*)");
+  const upserts = parsed.map((row) => ({ employee_id: Number(row.employeeId), work_date: row.date, status: row.status, notes: row.remarks }));
+  const { data, error } = await supabase.from("attendance").upsert(upserts, { onConflict: "employee_id,work_date" }).select("*, employees(*)");
   if (error) throw new Error(error.message);
   await auditLog({ userId, action: "update", module: "attendance", newValues: upserts });
   return (data ?? []).map((row) => mapAttendance(row));

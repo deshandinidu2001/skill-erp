@@ -43,7 +43,7 @@ export async function updatePayrollStatus(id: string, status: PayrollBatch["stat
     throw new Error("Cannot close/process payroll batch with net pay below zero without super admin override.");
   }
   const numericId = await resolveId("payroll_batches", idSchema.parse(id), "batch_code");
-  const patch = { status, locked_at: status === "locked" ? new Date().toISOString() : undefined };
+  const patch = { status };
   const { error } = await supabase.from("payroll_batches").update(patch).eq("id", numericId);
   if (error) throw new Error(error.message);
   await auditLog({ userId, action: "update", module: "payroll_batches", recordId: numericId, oldValues: { status: batch.status }, newValues: patch });

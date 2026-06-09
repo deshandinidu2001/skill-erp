@@ -4,12 +4,17 @@ import { EntityCard } from "@/components/cards/EntityCard";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { getLeads } from "@/services/api/leads.service";
 import { getProjects } from "@/services/api/projects.service";
+import { getStockRequests } from "@/services/api/stock-requests.service";
 import { formatCurrency } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const [leads, projects] = await Promise.all([getLeads(), getProjects()]);
+  const [leads, projects, stockRequests] = await Promise.all([
+    getLeads(),
+    getProjects(),
+    getStockRequests(),
+  ]);
   const pipeline = leads.reduce((total, lead) => total + lead.value, 0);
 
   return (
@@ -18,8 +23,8 @@ export default async function DashboardPage() {
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard title="Lead pipeline" value={formatCurrency(pipeline)} icon={Megaphone} href="/marketing/leads" />
         <StatCard title="Active projects" value={projects.filter((item) => item.status !== "completed").length} icon={FolderKanban} href="/projects" />
-        <StatCard title="Stock requests" value="2" icon={Package} href="/stock/requests" />
-        <StatCard title="Reports ready" value="8" icon={BarChart3} href="/reports" />
+        <StatCard title="Stock requests" value={stockRequests.length} icon={Package} href="/stock/requests" />
+        <StatCard title="Reports ready" value="10" icon={BarChart3} href="/reports" />
       </div>
       <section className="grid gap-4 lg:grid-cols-2">
         <div>

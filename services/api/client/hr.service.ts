@@ -1,4 +1,4 @@
-import { apiGet, apiPatch, apiPost } from "@/services/api/client/http";
+import { apiGet, apiPatch, apiPost, asArray } from "@/services/api/client/http";
 import type { AttendanceRecord, Employee, PayrollBatch } from "@/types";
 
 export type EmployeeDetail = {
@@ -21,8 +21,8 @@ export function calculatePayrollLine(line: PayrollBatch["lines"][number] | Recor
   return { epfEmployee, epfEmployer, etfEmployer, netPay };
 }
 
-export function getEmployees(): Promise<Employee[]> {
-  return apiGet("/api/employees");
+export async function getEmployees(): Promise<Employee[]> {
+  return asArray<Employee>(await apiGet("/api/employees"));
 }
 
 export function getEmployeeById(id: string) {
@@ -37,19 +37,19 @@ export function assignEmployeeToSite(employeeId: string, site: string) {
   return apiPost("/api/users", { action: "assign_site", employeeId, site });
 }
 
-export function getAttendance(site?: string, date?: string): Promise<AttendanceRecord[]> {
+export async function getAttendance(site?: string, date?: string): Promise<AttendanceRecord[]> {
   const params = new URLSearchParams();
   if (site) params.set("site", site);
   if (date) params.set("date", date);
-  return apiGet(`/api/attendance?${params}`);
+  return asArray<AttendanceRecord>(await apiGet(`/api/attendance?${params}`));
 }
 
 export function saveAttendance(rows: AttendanceRecord[], override = false) {
   return apiPost("/api/attendance", { rows, override });
 }
 
-export function getPayrollBatches(): Promise<PayrollBatch[]> {
-  return apiGet("/api/payroll");
+export async function getPayrollBatches(): Promise<PayrollBatch[]> {
+  return asArray<PayrollBatch>(await apiGet("/api/payroll"));
 }
 
 export function getPayrollBatch(id: string): Promise<PayrollBatch | undefined> {

@@ -37,30 +37,31 @@ const priorityMap: Record<string, Lead["priority"]> = {
 export function mapLead(row: Row): Lead {
   const customer = getRelated(row, "customers");
   const owner = getRelated(row, "app_users");
+  const title = row.requirement_description ?? row.title ?? row.project_location ?? "";
   return {
     id: String(row.id),
-    code: String(row.lead_code ?? ""),
+    code: String(row.lead_code ?? `LEAD-${row.id ?? ""}`),
     customerId: String(row.customer_id ?? ""),
-    customerName: String(customer?.display_name ?? ""),
-    phone: String(customer?.primary_phone ?? ""),
-    email: customer?.email ? String(customer.email) : undefined,
+    customerName: String(customer?.display_name ?? customer?.name ?? row.client_name ?? ""),
+    phone: String(customer?.primary_phone ?? customer?.phone ?? row.phone ?? ""),
+    email: customer?.email ? String(customer.email) : row.email ? String(row.email) : undefined,
     alternatePhone: customer?.secondary_phone ? String(customer.secondary_phone) : undefined,
-    companyName: customer?.company_name ? String(customer.company_name) : undefined,
-    title: String(row.requirement_description ?? row.project_location ?? ""),
-    value: 0,
+    companyName: customer?.company_name ? String(customer.company_name) : row.client_name ? String(row.client_name) : undefined,
+    title: String(title),
+    value: asNumber(row.estimated_budget),
     status: String(row.status ?? "new") as Lead["status"],
     owner: String(owner?.full_name ?? ""),
-    ownerId: row.assigned_marketing_owner_id ? String(row.assigned_marketing_owner_id) : undefined,
+    ownerId: row.assigned_marketing_owner_id ? String(row.assigned_marketing_owner_id) : row.assigned_to ? String(row.assigned_to) : undefined,
     source: String(row.lead_source ?? ""),
-    location: String(customer?.city ?? customer?.district ?? ""),
-    projectLocation: String(row.project_location ?? ""),
+    location: String(customer?.city ?? customer?.district ?? customer?.address ?? ""),
+    projectLocation: String(row.project_location ?? customer?.address ?? ""),
     projectType: projectTypeMap[String(row.project_type)] ?? "FULL_PROJECT",
     estimatedBudgetRange: row.estimated_budget_range ? String(row.estimated_budget_range) : undefined,
     preferredStartDate: toDate(row.preferred_start_date),
     urgency: String(row.priority ?? ""),
     priority: priorityMap[String(row.priority)] ?? "MEDIUM",
     tags: [],
-    requirementDescription: String(row.requirement_description ?? ""),
+    requirementDescription: String(row.requirement_description ?? title),
     drawingRequirements: row.drawing_requirements ? String(row.drawing_requirements) : undefined,
     constructionRequirements: row.construction_requirements ? String(row.construction_requirements) : undefined,
     additionalNotes: row.additional_notes ? String(row.additional_notes) : undefined,
@@ -79,7 +80,7 @@ export function mapEstimation(row: Row): Estimation {
     code: String(row.estimation_code ?? ""),
     leadId: String(row.lead_id ?? ""),
     leadCode: String(lead?.lead_code ?? ""),
-    leadTitle: String(lead?.requirement_description ?? ""),
+    leadTitle: String(lead?.requirement_description ?? lead?.title ?? ""),
     customerName: String(customer?.display_name ?? ""),
     projectType: String(lead?.project_type ?? ""),
     materialCostTotal: asNumber(row.material_cost_total),
@@ -88,7 +89,7 @@ export function mapEstimation(row: Row): Estimation {
     overheadCostTotal: asNumber(row.overhead_cost_total),
     profitMarginPercent: asNumber(row.profit_margin_pct),
     subtotal: asNumber(row.subtotal),
-    profitMarginValue: asNumber(row.profit_margin_value),
+    profitMarginValue: asNumber(row.profit_margin_value ?? row.tax_total),
     grandTotal: asNumber(row.grand_total),
     amount: asNumber(row.grand_total),
     status: String(row.status ?? "draft") as Estimation["status"],
@@ -107,7 +108,7 @@ export function mapQuotation(row: Row): Quotation {
   const owner = getRelated(row, "app_users");
   return {
     id: String(row.id),
-    code: String(row.quotation_code ?? ""),
+    code: String(row.quotation_code ?? row.quotation_no ?? ""),
     version: asNumber(row.version_number, 1),
     leadId: String(row.lead_id ?? ""),
     leadCode: String(lead?.lead_code ?? ""),
@@ -134,20 +135,20 @@ export function mapProject(row: Row): Project {
   return {
     id: String(row.id),
     project_id: String(row.id),
-    code: String(row.project_code ?? ""),
-    name: String(row.project_name ?? ""),
-    customerId: row.client_id ? String(row.client_id) : undefined,
-    client: String(customer?.display_name ?? ""),
-    customer: String(customer?.display_name ?? ""),
+    code: String(row.project_code ?? `PRJ-${row.id ?? ""}`),
+    name: String(row.project_name ?? row.name ?? ""),
+    customerId: row.client_id ? String(row.client_id) : row.customer_id ? String(row.customer_id) : undefined,
+    client: String(customer?.display_name ?? customer?.name ?? ""),
+    customer: String(customer?.display_name ?? customer?.name ?? ""),
     status: String(row.status ?? "draft") as Project["status"],
     manager: String(manager?.full_name ?? ""),
-    managerId: row.assigned_project_manager_id ? String(row.assigned_project_manager_id) : undefined,
+    managerId: row.assigned_project_manager_id ? String(row.assigned_project_manager_id) : row.manager_id ? String(row.manager_id) : undefined,
     progress: asNumber(row.progress_percent),
     site: String(site?.site_code ?? site?.site_name ?? ""),
     siteName: String(site?.site_name ?? ""),
     startDate: toDate(row.start_date),
     endDate: toDate(row.end_date),
-    budget: asNumber(row.budget_amount),
+    budget: asNumber(row.budget_amount ?? row.budget),
     quotationId: row.quotation_id ? String(row.quotation_id) : undefined,
     quotationCode: quotation?.quotation_code ? String(quotation.quotation_code) : undefined,
     quotationVersion: quotation?.version_number ? asNumber(quotation.version_number) : undefined,
@@ -169,12 +170,12 @@ export function mapEmployee(row: Row): Employee {
     email: row.email ? String(row.email) : undefined,
     address: row.address ? String(row.address) : undefined,
     department: String(department?.name ?? ""),
-    position: position?.name ? String(position.name) : undefined,
+    position: position?.name ? String(position.name) : position?.title ? String(position.title) : undefined,
     role: String(workRole?.name ?? position?.name ?? ""),
     workRole: workRole?.name ? String(workRole.name) : undefined,
-    joiningDate: toDate(row.joining_date),
+    joiningDate: toDate(row.joining_date ?? row.joined_on),
     salaryType: row.salary_type as Employee["salaryType"],
-    basicSalary: asNumber(row.basic_salary),
+    basicSalary: asNumber(row.basic_salary ?? row.base_salary),
     allowances: Array.isArray(row.allowances) ? (row.allowances as Employee["allowances"]) : [],
     deductions: Array.isArray(row.deductions) ? (row.deductions as Employee["deductions"]) : [],
     status: row.is_active === false ? "inactive" : "active",
@@ -182,21 +183,21 @@ export function mapEmployee(row: Row): Employee {
 }
 
 export function mapVehicle(row: Row): Vehicle {
-  const status = String(row.current_status ?? "available");
+  const status = String(row.current_status ?? row.status ?? "available");
   return {
     id: String(row.id),
-    code: String(row.vehicle_code ?? ""),
-    vehicleCode: String(row.vehicle_code ?? ""),
-    registrationNo: String(row.registration_number ?? ""),
-    registrationNumber: String(row.registration_number ?? ""),
-    type: String(row.category ?? ""),
-    category: String(row.category ?? "other") as Vehicle["category"],
-    ownershipStatus: row.ownership_status as Vehicle["ownershipStatus"],
+    code: String(row.vehicle_code ?? row.registration_no ?? `VEH-${row.id ?? ""}`),
+    vehicleCode: String(row.vehicle_code ?? row.registration_no ?? `VEH-${row.id ?? ""}`),
+    registrationNo: String(row.registration_number ?? row.registration_no ?? ""),
+    registrationNumber: String(row.registration_number ?? row.registration_no ?? ""),
+    type: String(row.category ?? row.model ?? ""),
+    category: String(row.category ?? row.model ?? "other") as Vehicle["category"],
+    ownershipStatus: (row.ownership_status ?? row.ownership) as Vehicle["ownershipStatus"],
     status: status === "under_maintenance" ? "maintenance" : (status as Vehicle["status"]),
-    meterReading: asNumber(row.current_meter_reading),
+    meterReading: asNumber(row.current_meter_reading ?? row.current_meter),
     insuranceExpiry: toDate(row.insurance_expiry),
     licenseExpiry: toDate(row.license_expiry),
-    notes: row.notes ? String(row.notes) : undefined,
+    notes: row.notes ? String(row.notes) : [row.make, row.model].filter(Boolean).join(" "),
   };
 }
 
@@ -205,11 +206,11 @@ export function mapStockItem(row: Row): StockItem {
   const supplier = getRelated(row, "suppliers");
   return {
     id: String(row.id),
-    code: String(row.material_code ?? ""),
+    code: String(row.material_code ?? row.sku ?? ""),
     name: String(row.name ?? ""),
     category: String(row.category ?? ""),
-    unit: String(unit?.abbreviation ?? ""),
-    standardCost: asNumber(row.standard_cost),
+    unit: String(unit?.abbreviation ?? unit?.code ?? ""),
+    standardCost: asNumber(row.standard_cost ?? row.standard_rate),
     preferredSupplier: String(supplier?.name ?? ""),
     status: row.is_active === false ? "inactive" : "active",
   };
@@ -219,13 +220,13 @@ export function mapSupplier(row: Row): Supplier {
   const performance = getRelated(row, "supplier_performance");
   return {
     id: String(row.id),
-    code: String(row.supplier_code ?? ""),
+    code: String(row.supplier_code ?? `SUP-${row.id ?? ""}`),
     name: String(row.name ?? ""),
     contact: String(row.contact_person ?? ""),
     phone: String(row.phone ?? ""),
     email: String(row.email ?? ""),
     category: String(row.category ?? ""),
-    rating: asNumber(performance?.average_rating),
+    rating: asNumber(performance?.average_rating ?? performance?.rating),
     status: String(row.status ?? "active") as Supplier["status"],
     onTimePercent: asNumber(performance?.total_orders) > 0 ? Math.round((asNumber(performance?.on_time_deliveries) / asNumber(performance?.total_orders)) * 100) : 0,
     orderHistory: [],
@@ -240,11 +241,11 @@ export function mapStockRequest(row: Row): StockRequest {
   return {
     id: String(row.id),
     project_id: String(row.project_id ?? ""),
-    code: String(row.request_code ?? ""),
-    project: String(project?.project_name ?? ""),
-    site: String(site?.site_name ?? site?.site_code ?? ""),
-    requestDate: toDate(row.request_date),
-    requiredByDate: toDate(row.required_by_date),
+    code: String(row.request_code ?? `SR-${row.id ?? ""}`),
+    project: String(project?.project_name ?? project?.name ?? ""),
+    site: String(site?.site_name ?? site?.site_code ?? site?.name ?? ""),
+    requestDate: toDate(row.request_date ?? row.created_at),
+    requiredByDate: toDate(row.required_by_date ?? row.required_on),
     requester: String(requester?.full_name ?? ""),
     requestedBy: String(requester?.full_name ?? ""),
     remarks: row.remarks ? String(row.remarks) : undefined,
@@ -256,11 +257,11 @@ export function mapStockRequest(row: Row): StockRequest {
       return {
         id: String(item.id),
         itemId: String(item.material_id ?? ""),
-        itemCode: String(material?.material_code ?? ""),
+        itemCode: String(material?.material_code ?? material?.sku ?? ""),
         itemName: String(material?.name ?? ""),
         quantity: asNumber(item.quantity),
-        unit: String(unit?.abbreviation ?? ""),
-        purpose: String(item.purpose ?? ""),
+        unit: String(unit?.abbreviation ?? unit?.code ?? item.unit ?? ""),
+        purpose: String(item.purpose ?? item.description ?? ""),
         estimatedPrice: asNumber(item.estimated_price),
       };
     }),
@@ -269,23 +270,23 @@ export function mapStockRequest(row: Row): StockRequest {
 
 export function mapPurchaseOrder(row: Row): PurchaseOrder {
   const supplier = getRelated(row, "suppliers");
-  const project = getRelated(row, "projects");
-  const site = getRelated(row, "sites");
   const request = getRelated(row, "stock_requests");
+  const project = getRelated(row, "projects") ?? (request ? getRelated(request, "projects") : undefined);
+  const site = getRelated(row, "sites") ?? (request ? getRelated(request, "sites") : undefined);
   const lines = Array.isArray(row.purchase_order_items) ? (row.purchase_order_items as Row[]) : [];
   return {
     id: String(row.id),
     project_id: String(row.project_id ?? ""),
-    code: String(row.po_number ?? ""),
+    code: String(row.po_number ?? row.po_no ?? ""),
     supplierId: String(row.supplier_id ?? ""),
     supplier: String(supplier?.name ?? ""),
     linkedRequestId: row.stock_request_id ? String(row.stock_request_id) : undefined,
     linkedRequestCode: request?.request_code ? String(request.request_code) : undefined,
-    project: String(project?.project_name ?? ""),
-    site: String(site?.site_name ?? site?.site_code ?? ""),
-    issueDate: toDate(row.issue_date),
-    expectedDeliveryDate: toDate(row.expected_delivery_date),
-    grandTotal: asNumber(row.total_amount),
+    project: String(project?.project_name ?? project?.name ?? ""),
+    site: String(site?.site_name ?? site?.site_code ?? site?.name ?? ""),
+    issueDate: toDate(row.issue_date ?? row.order_date),
+    expectedDeliveryDate: toDate(row.expected_delivery_date ?? row.expected_date),
+    grandTotal: asNumber(row.total_amount ?? row.grand_total),
     status: String(row.status ?? "draft") as PurchaseOrder["status"],
     lines: lines.map((line) => {
       const material = getRelated(line, "materials");
@@ -295,8 +296,8 @@ export function mapPurchaseOrder(row: Row): PurchaseOrder {
         itemId: String(line.material_id ?? ""),
         itemName: String(material?.name ?? ""),
         orderedQty: asNumber(line.quantity),
-        unit: String(unit?.abbreviation ?? ""),
-        unitPrice: asNumber(line.unit_price),
+        unit: String(unit?.abbreviation ?? unit?.code ?? line.unit ?? ""),
+        unitPrice: asNumber(line.unit_price ?? line.rate),
         tax: asNumber(line.tax_amount),
         receivedQuantity: asNumber(line.received_quantity),
       };
@@ -311,12 +312,12 @@ export function mapInventory(row: Row): InventoryBalance {
   return {
     id: String(row.id),
     project_id: "",
-    site: String(site?.site_name ?? site?.site_code ?? ""),
+    site: String(site?.site_name ?? site?.site_code ?? site?.name ?? ""),
     itemId: String(row.material_id ?? ""),
     item: String(material?.name ?? ""),
     category: String(material?.category ?? ""),
     unit: String(unit?.abbreviation ?? ""),
-    currentBalance: asNumber(row.current_balance),
+    currentBalance: asNumber(row.current_balance ?? row.quantity),
     reorderLevel: asNumber(material?.reorder_level),
   };
 }
@@ -359,7 +360,7 @@ export function mapClientPayment(row: Row): ClientPayment {
     customer: String(customer?.display_name ?? ""),
     date: toDate(row.payment_date),
     amount: asNumber(row.amount),
-    method: String(row.payment_method ?? ""),
+    method: String(row.payment_method ?? row.method ?? ""),
     milestoneReference: row.milestone_ref ? String(row.milestone_ref) : undefined,
     referenceNo: row.reference_no ? String(row.reference_no) : undefined,
     notes: row.notes ? String(row.notes) : undefined,
@@ -374,7 +375,7 @@ export function mapAttendance(row: Row): AttendanceRecord {
     employeeId: String(row.employee_id ?? ""),
     employeeName: String(employee?.full_name ?? ""),
     site: String(site?.site_name ?? site?.site_code ?? ""),
-    date: toDate(row.attendance_date),
+    date: toDate(row.attendance_date ?? row.work_date),
     status: String(row.status ?? "present") as AttendanceRecord["status"],
   };
 }
@@ -394,7 +395,7 @@ export function mapPayrollBatch(row: Row): PayrollBatch {
         id: String(line.id),
         employeeId: String(line.employee_id ?? ""),
         employeeName: String(employee?.full_name ?? ""),
-        basic: asNumber(line.basic_salary),
+        basic: asNumber(line.basic_salary ?? line.gross_pay),
         attendanceAdj: asNumber(line.attendance_adjustment),
         allowances: asNumber(line.allowances),
         deductions: asNumber(line.deductions),

@@ -4,7 +4,7 @@ import { assignEmployeeToSite, getUsers, upsertAppUser } from "@/services/api/us
 
 export async function GET() {
   try {
-    await requireSession(["super_admin", "hr_manager", "hr_executive", "viewer"]);
+    await requireSession();
     return ok(await getUsers());
   } catch (error) {
     return errorResponse(error);

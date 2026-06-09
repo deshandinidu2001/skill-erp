@@ -28,12 +28,11 @@ export async function auditLog(input: {
 }) {
   const supabase = createAdminClient();
   await supabase.from("audit_logs").insert({
-    user_id: input.userId,
+    actor_id: input.userId,
     action: input.action,
-    module: input.module,
-    record_id: input.recordId == null ? undefined : String(input.recordId),
-    old_values: input.oldValues,
-    new_values: input.newValues,
+    entity_type: input.module,
+    entity_id: input.recordId == null ? undefined : String(input.recordId),
+    metadata: { old_values: input.oldValues, new_values: input.newValues },
   });
 }
 
@@ -56,6 +55,9 @@ export async function resolveId(table: string, idOrCode: string, codeColumn: str
     ? supabase.from(table).select("id").eq("id", numericId).maybeSingle()
     : supabase.from(table).select("id").eq(codeColumn, idOrCode).maybeSingle();
   const { data, error } = await query;
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (error.code === "42703" && !Number.isFinite(numericId)) return undefined;
+    throw new Error(error.message);
+  }
   return (data as { id: number } | null)?.id;
 }

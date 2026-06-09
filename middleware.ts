@@ -80,5 +80,5 @@ function canAccessStockPath(role: Role, pathname: string) {
 }
 
 export const config = {
-  matcher: ["/((?!api/auth|api/client/files|_next/static|_next/image|favicon.ico|next.svg|vercel.svg).*)"],
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|next.svg|vercel.svg).*)"],
 };

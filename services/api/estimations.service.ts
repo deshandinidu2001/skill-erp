@@ -2,7 +2,7 @@ import "server-only";
 
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/server";
-import { auditLog, countRows, generateCode, idSchema, resolveId } from "@/services/api/common";
+import { auditLog, idSchema, resolveId } from "@/services/api/common";
 import { mapEstimation } from "@/services/api/mappers";
 import type { FilterParams } from "@/types";
 
@@ -29,7 +29,7 @@ export async function getEstimations(filters?: FilterParams) {
   const supabase = createAdminClient();
   let query = supabase
     .from("estimations")
-    .select("*, leads(*, customers(*)), app_users!assigned_qs_engineer(full_name,id)")
+    .select("*, leads(*, customers(*)), app_users!prepared_by(full_name,id)")
     .order("updated_at", { ascending: false });
   if (filters?.status) query = query.eq("status", filters.status as never);
   const { data, error } = await query;
@@ -43,18 +43,18 @@ export async function getEstimationById(id: string) {
   if (!numericId) return undefined;
   const { data, error } = await supabase
     .from("estimations")
-    .select("*, leads(*, customers(*)), app_users!assigned_qs_engineer(full_name,id), estimation_lines(*)")
+    .select("*, leads(*, customers(*)), app_users!prepared_by(full_name,id), estimation_lines(*)")
     .eq("id", numericId)
     .single();
   if (error) throw new Error(error.message);
   const mapped = mapEstimation(data);
   mapped.lines = (data.estimation_lines ?? []).map((line: Record<string, unknown>) => ({
     id: String(line.id),
-    category: String(line.category ?? ""),
-    description: String(line.item_description ?? ""),
+    category: String(line.item_code ?? ""),
+    description: String(line.description ?? line.item_description ?? ""),
     qty: Number(line.quantity ?? 0),
     unit: String(line.unit ?? ""),
-    unitRate: Number(line.unit_rate ?? 0),
+    unitRate: Number(line.rate ?? line.unit_rate ?? 0),
     remarks: line.remarks ? String(line.remarks) : undefined,
   }));
   return mapped;
@@ -65,15 +65,17 @@ export async function createEstimation(payload: unknown, userId: string) {
   const supabase = createAdminClient();
   const subtotal = input.material_cost_total + input.labour_cost_total + input.equipment_cost_total + input.overhead_cost_total;
   const profit_margin_value = subtotal * (input.profit_margin_pct / 100);
+  const { data: lead } = await supabase.from("leads").select("title").eq("id", input.lead_id).maybeSingle();
   const { data, error } = await supabase
     .from("estimations")
     .insert({
-      ...input,
-      estimation_code: generateCode("EST", await countRows("estimations")),
+      lead_id: input.lead_id,
+      title: lead?.title ? `${lead.title} Estimate` : `Estimate ${new Date().toISOString().slice(0, 10)}`,
+      prepared_by: input.assigned_qs_engineer ?? userId,
       subtotal,
-      profit_margin_value,
+      tax_total: profit_margin_value,
       grand_total: subtotal + profit_margin_value,
-      created_by: userId,
+      notes: input.notes,
     })
     .select()
     .single();

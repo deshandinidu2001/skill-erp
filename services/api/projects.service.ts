@@ -2,7 +2,7 @@ import "server-only";
 
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/server";
-import { auditLog, countRows, generateCode, idSchema, resolveId } from "@/services/api/common";
+import { auditLog, idSchema, resolveId } from "@/services/api/common";
 import { mapClientPayment, mapInventory, mapProject, mapProjectExpense, mapPurchaseOrder, mapStockRequest } from "@/services/api/mappers";
 import { journalForExpense } from "@/services/api/journal.service";
 import type { EntityStatus, FilterParams, ProjectExpense } from "@/types";
@@ -44,7 +44,7 @@ export async function getProjects(filters?: FilterParams) {
   const supabase = createAdminClient();
   let query = supabase
     .from("projects")
-    .select("*, customers!client_id(*), sites(*), quotations(*), app_users!assigned_project_manager_id(full_name,id)")
+    .select("*, customers(*), sites(*), quotations(*), app_users!manager_id(full_name,id)")
     .order("created_at", { ascending: false });
   if (filters?.status) query = query.eq("status", filters.status as never);
   const { data, error } = await query;
@@ -58,7 +58,7 @@ export async function getProjectById(id: string) {
   if (!numericId) return undefined;
   const { data, error } = await supabase
     .from("projects")
-    .select("*, customers!client_id(*), sites(*), quotations(*), app_users!assigned_project_manager_id(full_name,id)")
+    .select("*, customers(*), sites(*), quotations(*), app_users!manager_id(full_name,id)")
     .eq("id", numericId)
     .single();
   if (error) throw new Error(error.message);
@@ -97,7 +97,7 @@ export async function getProjectDetail(id: string) {
     inventory: (inventory ?? []).map((row) => mapInventory(row)),
     timeline: [
       { actor: "System", action: "created project", timestamp: `${project.startDate}T08:00:00`, summary: project.name },
-      ...(logs ?? []).map((log) => ({ actor: "System", action: "changed status", timestamp: String(log.updated_at), summary: `${log.old_status ?? "created"} to ${log.new_status}` })),
+      ...(logs ?? []).map((log) => ({ actor: "System", action: "changed status", timestamp: String(log.created_at), summary: `${log.from_status ?? "created"} to ${log.to_status}` })),
     ],
   };
 }
@@ -108,7 +108,16 @@ export async function createProject(payload: unknown, userId: string) {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("projects")
-    .insert({ ...input, project_code: generateCode("PRJ", await countRows("projects")), created_by: userId, status: "created" })
+    .insert({
+      name: input.project_name,
+      customer_id: input.client_id,
+      lead_id: input.lead_id,
+      budget: input.budget_amount,
+      start_date: input.start_date,
+      end_date: input.end_date,
+      manager_id: input.assigned_project_manager_id,
+      status: "created",
+    })
     .select()
     .single();
   if (error) throw new Error(error.message);
@@ -131,7 +140,7 @@ export async function changeProjectStatus(projectId: string, toStatus: EntitySta
   if (toStatus === "cancelled") patch.cancellation_reason = reason;
   const { data, error } = await supabase.from("projects").update(patch).eq("id", numericId).select().single();
   if (error) throw new Error(error.message);
-  await supabase.from("project_status_logs").insert({ project_id: numericId, old_status: project.status, new_status: toStatus as never, remarks: reason, updated_by: userId });
+  await supabase.from("project_status_logs").insert({ project_id: numericId, from_status: project.status, to_status: toStatus as never, changed_by: userId });
   await auditLog({ userId, action: "update", module: "projects", recordId: numericId, oldValues: project, newValues: patch });
   return mapProject(data);
 }
@@ -142,7 +151,7 @@ export async function addProjectExpense(projectId: string, expense: Pick<Project
   if (!numericId) throw new Error("Project not found.");
   const supabase = createAdminClient();
   const categoryName = input.category === "misc" ? "Miscellaneous" : input.category[0].toUpperCase() + input.category.slice(1);
-  const { data: category } = await supabase.from("expense_categories").select("id, account_code").ilike("name", categoryName).maybeSingle();
+  const { data: category } = await supabase.from("expense_categories").select("id").ilike("name", categoryName).maybeSingle();
   const { data, error } = await supabase
     .from("project_expenses")
     .insert({
@@ -151,7 +160,6 @@ export async function addProjectExpense(projectId: string, expense: Pick<Project
       expense_date: input.date,
       vendor_or_payee: input.vendorOrPayee,
       amount: input.amount,
-      payment_method: input.paymentMethod,
       description: input.notes,
       created_by: userId,
     })
@@ -159,7 +167,7 @@ export async function addProjectExpense(projectId: string, expense: Pick<Project
     .single();
   if (error) throw new Error(error.message);
   await auditLog({ userId, action: "create", module: "project_expenses", recordId: data.id, newValues: data });
-  await journalForExpense({ id: data.id, amount: Number(data.amount), category_code: category?.account_code ?? "EXP-005", project_id: numericId, expense_date: input.date }, userId ?? "");
+  await journalForExpense({ id: data.id, amount: Number(data.amount), category_code: "5000", project_id: numericId, expense_date: input.date }, userId ?? "");
   return mapProjectExpense(data);
 }
 
@@ -167,11 +175,11 @@ export async function createFromQuotation(quotationId: string, userId?: string) 
   const supabase = createAdminClient();
   const numericId = await resolveId("quotations", idSchema.parse(quotationId), "quotation_code");
   if (!numericId) throw new Error("Quotation not found.");
-  const { data: quotation, error } = await supabase.from("quotations").select("*, leads(customer_id, project_location, requirement_description)").eq("id", numericId).single();
+  const { data: quotation, error } = await supabase.from("quotations").select("*, leads(customer_id, title)").eq("id", numericId).single();
   if (error) throw new Error(error.message);
   return createProject(
     {
-      project_name: `${quotation.quotation_code} - Approved works`,
+      project_name: `${quotation.quotation_no} - Approved works`,
       client_id: quotation.leads.customer_id,
       lead_id: quotation.lead_id,
       boq_id: quotation.boq_id ?? undefined,

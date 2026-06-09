@@ -1,6 +1,8 @@
 async function parseResponse<T>(res: Response): Promise<T> {
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body.error ?? "Request failed");
+  const contentType = res.headers.get("content-type") ?? "";
+  const body = contentType.includes("application/json") ? await res.json().catch(() => undefined) : undefined;
+  if (!res.ok) throw new Error((body as { error?: string } | undefined)?.error ?? "Request failed");
+  if (body === undefined) throw new Error("Expected JSON response from API");
   return (body.data ?? body) as T;
 }
 
@@ -26,4 +28,12 @@ export async function apiPatch<T>(url: string, body: unknown) {
       body: JSON.stringify(body),
     }),
   );
+}
+
+export function asArray<T>(value: unknown): T[] {
+  if (Array.isArray(value)) return value as T[];
+  if (value && typeof value === "object" && Array.isArray((value as { data?: unknown }).data)) {
+    return (value as { data: T[] }).data;
+  }
+  return [];
 }

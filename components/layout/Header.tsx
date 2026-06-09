@@ -35,7 +35,7 @@ export function Header({
   }, [query]);
 
   return (
-    <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
+    <header className="sticky top-0 z-20 shrink-0 border-b border-slate-200 bg-white/95 backdrop-blur">
       <div className="flex h-16 items-center gap-4 px-4 lg:px-6">
         <div className="lg:hidden">
           <div className="grid h-9 w-9 place-items-center rounded-md bg-cyan-700 text-sm font-bold text-white">

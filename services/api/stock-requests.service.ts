@@ -2,7 +2,7 @@ import "server-only";
 
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/server";
-import { auditLog, countRows, generateCode, idSchema, resolveId } from "@/services/api/common";
+import { auditLog, idSchema, resolveId } from "@/services/api/common";
 import { mapStockRequest } from "@/services/api/mappers";
 
 const lineSchema = z.object({
@@ -38,7 +38,7 @@ export async function getStockRequests() {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("stock_requests")
-    .select("*, projects(*), sites(*), app_users!requested_by(full_name,id), stock_request_items(*, materials(*), units_of_measure(*))")
+    .select("*, projects(*), sites(*), app_users!requested_by(full_name,id), stock_request_items(*, materials(*, units_of_measure(*)))")
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
   return (data ?? []).map((row) => mapStockRequest(row));
@@ -50,7 +50,7 @@ export async function getStockRequestById(id: string) {
   if (!numericId) return undefined;
   const { data, error } = await supabase
     .from("stock_requests")
-    .select("*, projects(*), sites(*), app_users!requested_by(full_name,id), stock_request_items(*, materials(*), units_of_measure(*))")
+    .select("*, projects(*), sites(*), app_users!requested_by(full_name,id), stock_request_items(*, materials(*, units_of_measure(*)))")
     .eq("id", numericId)
     .single();
   if (error) throw new Error(error.message);
@@ -63,19 +63,17 @@ export async function createStockRequest(payload: unknown, userId: string) {
   const supabase = createAdminClient();
   const projectId = await resolveId("projects", String(input.project_id), "project_code");
   if (!projectId) throw new Error("Project is required.");
-  const { data: project } = await supabase.from("projects").select("site_id").eq("id", projectId).single();
-  const siteId = input.site_id ?? project?.site_id;
+  const { data: projectSite } = await supabase.from("sites").select("id").eq("project_id", projectId).limit(1).maybeSingle();
+  const siteId = input.site_id ?? projectSite?.id;
   if (!siteId) throw new Error("Site is required.");
   const { data, error } = await supabase
     .from("stock_requests")
     .insert({
-      request_code: generateCode("SR", await countRows("stock_requests")),
       project_id: projectId,
       site_id: siteId,
       requested_by: input.requested_by ?? userId,
-      request_date: input.requestDate,
-      required_by_date: input.requiredByDate,
-      remarks: input.remarks,
+      required_on: input.requiredByDate,
+      notes: input.remarks,
     })
     .select()
     .single();
@@ -85,9 +83,7 @@ export async function createStockRequest(payload: unknown, userId: string) {
     stock_request_id: data.id,
     material_id: Number(line.itemId),
     quantity: line.quantity,
-    unit_id: line.unit_id,
-    estimated_price: line.estimatedPrice,
-    purpose: line.purpose,
+    description: line.purpose,
   }));
   const { error: lineError } = await supabase.from("stock_request_items").insert(lineInserts);
   if (lineError) {
@@ -106,7 +102,7 @@ export async function updateStockRequestStatus(id: string, status: string, reaso
   if (currentError) throw new Error(currentError.message);
   if (!transitions[String(current.status)]?.includes(status)) throw new Error(`Invalid transition: ${current.status} to ${status}`);
   const patch: Record<string, unknown> = { status };
-  if (status === "rejected") patch.rejection_reason = reason;
+  if (status === "rejected") patch.notes = reason;
   const { error } = await supabase.from("stock_requests").update(patch).eq("id", numericId);
   if (error) throw new Error(error.message);
   await auditLog({ userId, action: "update", module: "stock_requests", recordId: numericId, oldValues: current, newValues: patch });

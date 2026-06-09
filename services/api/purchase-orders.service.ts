@@ -3,7 +3,7 @@ import "server-only";
 import { z } from "zod";
 import { PO_APPROVAL_THRESHOLD } from "@/constants/stock";
 import { createAdminClient } from "@/lib/supabase/server";
-import { auditLog, countRows, generateCode, idSchema, resolveId } from "@/services/api/common";
+import { auditLog, idSchema, resolveId } from "@/services/api/common";
 import { mapPurchaseOrder } from "@/services/api/mappers";
 
 const lineSchema = z.object({
@@ -28,7 +28,7 @@ export async function getPurchaseOrders() {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("purchase_orders")
-    .select("*, suppliers(*), projects(*), sites(*), stock_requests(*), purchase_order_items(*, materials(*), units_of_measure(*))")
+    .select("*, suppliers(*), stock_requests(*, projects(*), sites(*)), purchase_order_items(*, materials(*, units_of_measure(*)))")
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
   return (data ?? []).map((row) => mapPurchaseOrder(row));
@@ -36,11 +36,11 @@ export async function getPurchaseOrders() {
 
 export async function getPurchaseOrderById(id: string) {
   const supabase = createAdminClient();
-  const numericId = await resolveId("purchase_orders", idSchema.parse(id), "po_number");
+  const numericId = await resolveId("purchase_orders", idSchema.parse(id), "po_no");
   if (!numericId) return undefined;
   const { data, error } = await supabase
     .from("purchase_orders")
-    .select("*, suppliers(*), projects(*), sites(*), stock_requests(*), purchase_order_items(*, materials(*), units_of_measure(*))")
+    .select("*, suppliers(*), stock_requests(*, projects(*), sites(*)), purchase_order_items(*, materials(*, units_of_measure(*)))")
     .eq("id", numericId)
     .single();
   if (error) throw new Error(error.message);
@@ -55,18 +55,19 @@ export async function createPurchaseOrder(payload: unknown, userId: string) {
   const supplierId = await resolveId("suppliers", input.supplierId, "supplier_code");
   if (!supplierId) throw new Error("Supplier is required.");
   const requestId = input.linkedRequestId ? await resolveId("stock_requests", input.linkedRequestId, "request_code") : undefined;
-  const total = input.lines.reduce((sum, line) => sum + line.orderedQty * line.unitPrice + line.tax, 0);
+  const subtotal = input.lines.reduce((sum, line) => sum + line.orderedQty * line.unitPrice, 0);
+  const taxTotal = input.lines.reduce((sum, line) => sum + line.tax, 0);
   const { data, error } = await supabase
     .from("purchase_orders")
     .insert({
-      po_number: generateCode("PO", await countRows("purchase_orders")),
+      po_no: `PO-${Date.now()}`,
       supplier_id: supplierId,
-      project_id: projectId,
-      site_id: input.site_id,
       stock_request_id: requestId,
-      issue_date: input.issueDate,
-      expected_delivery_date: input.expectedDeliveryDate,
-      total_amount: total,
+      order_date: input.issueDate,
+      expected_date: input.expectedDeliveryDate,
+      subtotal,
+      tax_total: taxTotal,
+      grand_total: subtotal + taxTotal,
       created_by: userId,
     })
     .select()
@@ -76,9 +77,7 @@ export async function createPurchaseOrder(payload: unknown, userId: string) {
     purchase_order_id: data.id,
     material_id: Number(line.itemId),
     quantity: line.orderedQty,
-    unit_id: line.unit_id,
-    unit_price: line.unitPrice,
-    tax_amount: line.tax,
+    rate: line.unitPrice,
   }));
   const { error: lineError } = await supabase.from("purchase_order_items").insert(lines);
   if (lineError) {
@@ -91,14 +90,14 @@ export async function createPurchaseOrder(payload: unknown, userId: string) {
 
 export async function approvePurchaseOrder(id: string, role: string, userId?: string) {
   const supabase = createAdminClient();
-  const numericId = await resolveId("purchase_orders", idSchema.parse(id), "po_number");
+  const numericId = await resolveId("purchase_orders", idSchema.parse(id), "po_no");
   if (!numericId) throw new Error("Purchase order not found.");
-  const { data: po, error: poError } = await supabase.from("purchase_orders").select("total_amount, status").eq("id", numericId).single();
+  const { data: po, error: poError } = await supabase.from("purchase_orders").select("grand_total, status").eq("id", numericId).single();
   if (poError) throw new Error(poError.message);
-  if (Number(po.total_amount ?? 0) > PO_APPROVAL_THRESHOLD && role !== "finance_manager" && role !== "super_admin") throw new Error("Finance manager approval required above threshold.");
+  if (Number(po.grand_total ?? 0) > PO_APPROVAL_THRESHOLD && role !== "finance_manager" && role !== "super_admin") throw new Error("Finance manager approval required above threshold.");
   const { error } = await supabase.from("purchase_orders").update({ status: "approved" }).eq("id", numericId);
   if (error) throw new Error(error.message);
-  await supabase.from("purchase_approvals").insert({ purchase_order_id: numericId, approved_by: userId, approver_role: role as never, status: "approved", approved_at: new Date().toISOString() });
+  await supabase.from("purchase_approvals").insert({ purchase_order_id: numericId, approved_by: userId, status: "approved", notes: `Approved by ${role}` });
   await auditLog({ userId, action: "update", module: "purchase_orders", recordId: numericId, oldValues: po, newValues: { status: "approved" } });
   return getPurchaseOrderById(String(numericId));
 }

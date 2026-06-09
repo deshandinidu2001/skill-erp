@@ -1,16 +1,16 @@
-import { apiGet, apiPatch, apiPost } from "@/services/api/client/http";
+import { apiGet, apiPatch, apiPost, asArray } from "@/services/api/client/http";
 import type { GoodsReceipt, InventoryBalance, PurchaseOrder, StockItem, StockRequest, Supplier } from "@/types";
 
 export async function getStockItems(): Promise<StockItem[]> {
-  return (await apiGet<{ items: StockItem[] }>("/api/inventory")).items;
+  return asArray<StockItem>((await apiGet<{ items: StockItem[] }>("/api/inventory")).items);
 }
 
 export async function getSuppliers(): Promise<Supplier[]> {
-  return (await apiGet<{ suppliers: Supplier[] }>("/api/inventory")).suppliers;
+  return asArray<Supplier>((await apiGet<{ suppliers: Supplier[] }>("/api/inventory")).suppliers);
 }
 
-export function getStockRequests(): Promise<StockRequest[]> {
-  return apiGet("/api/stock-requests");
+export async function getStockRequests(): Promise<StockRequest[]> {
+  return asArray<StockRequest>(await apiGet("/api/stock-requests"));
 }
 
 export function getStockRequestById(id: string): Promise<StockRequest | undefined> {
@@ -25,8 +25,8 @@ export function updateStockRequestStatus(id: string, status: StockRequest["statu
   return apiPatch(`/api/stock-requests/${id}`, { status, reason });
 }
 
-export function getPurchaseOrders(): Promise<PurchaseOrder[]> {
-  return apiGet("/api/purchase-orders");
+export async function getPurchaseOrders(): Promise<PurchaseOrder[]> {
+  return asArray<PurchaseOrder>(await apiGet("/api/purchase-orders"));
 }
 
 export function createPurchaseOrder(input: unknown): Promise<PurchaseOrder> {
@@ -37,8 +37,8 @@ export function approvePurchaseOrder(id: string, _role?: string) {
   return apiPatch("/api/purchase-orders", { id });
 }
 
-export function getGoodsReceipts(): Promise<GoodsReceipt[]> {
-  return apiGet("/api/goods-receipts");
+export async function getGoodsReceipts(): Promise<GoodsReceipt[]> {
+  return asArray<GoodsReceipt>(await apiGet("/api/goods-receipts"));
 }
 
 export function createGoodsReceipt(input: unknown): Promise<GoodsReceipt[]> {
@@ -46,5 +46,5 @@ export function createGoodsReceipt(input: unknown): Promise<GoodsReceipt[]> {
 }
 
 export async function getInventory(): Promise<InventoryBalance[]> {
-  return (await apiGet<{ inventory: InventoryBalance[] }>("/api/inventory")).inventory;
+  return asArray<InventoryBalance>((await apiGet<{ inventory: InventoryBalance[] }>("/api/inventory")).inventory);
 }

@@ -1,4 +1,4 @@
-import { apiGet, apiPatch } from "@/services/api/client/http";
+import { apiGet, apiPatch, asArray } from "@/services/api/client/http";
 import type { ActivityItem, Attachment, ClientPayment, EntityStatus, FilterParams, InventoryBalance, JournalEntry, PettyCash, Project, ProjectExpense, ProjectProgressUpdate, ProjectTeamAssignment, ProjectVehicleAssignment, PurchaseOrder, Quotation, StockRequest } from "@/types";
 
 export type ProjectDetail = {
@@ -18,9 +18,9 @@ export type ProjectDetail = {
   timeline: ActivityItem[];
 };
 
-export function getProjects(params?: FilterParams): Promise<Project[]> {
+export async function getProjects(params?: FilterParams): Promise<Project[]> {
   const qs = params ? `?${new URLSearchParams(params as Record<string, string>)}` : "";
-  return apiGet(`/api/projects${qs}`);
+  return asArray<Project>(await apiGet(`/api/projects${qs}`));
 }
 
 export function getProjectById(id: string): Promise<Project | undefined> {

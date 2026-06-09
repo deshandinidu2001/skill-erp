@@ -1,8 +1,8 @@
-import { apiGet, apiPost } from "@/services/api/client/http";
+import { apiGet, apiPost, asArray } from "@/services/api/client/http";
 import type { AppUser } from "@/types";
 
-export function getUsers(): Promise<AppUser[]> {
-  return apiGet("/api/users");
+export async function getUsers(): Promise<AppUser[]> {
+  return asArray<AppUser>(await apiGet("/api/users"));
 }
 
 export function upsertAppUser(input: unknown) {

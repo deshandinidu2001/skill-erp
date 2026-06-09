@@ -3,14 +3,14 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { Loader2, LogIn } from "lucide-react";
 import { Suspense, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { INTERNAL_ROLES, roleLabels } from "@/constants/roles";
 
 const loginSchema = z.object({
-  email: z.string().email("Enter a valid email"),
-  password: z.string().min(1, "Enter your password"),
+  role: z.enum(INTERNAL_ROLES, { message: "Select a role" }),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -26,8 +26,7 @@ function LoginForm() {
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: "",
-      password: "",
+      role: "super_admin",
     },
   });
 
@@ -39,7 +38,7 @@ function LoginForm() {
     });
 
     if (result?.error) {
-      setToast("Invalid credentials or login rate limit exceeded.");
+      setToast("Could not start the demo session.");
       return;
     }
 
@@ -66,7 +65,7 @@ function LoginForm() {
               SE
             </div>
             <h2 className="text-2xl font-semibold tracking-tight text-slate-950">Skill Engineering ERP</h2>
-            <p className="mt-1 text-sm text-slate-500">Sign in with your account credentials.</p>
+            <p className="mt-1 text-sm text-slate-500">Select a demo role to enter the system.</p>
           </div>
           {toast ? (
             <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
@@ -75,25 +74,19 @@ function LoginForm() {
           ) : null}
           <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4">
             <label className="grid gap-2 text-sm font-medium text-slate-700">
-              Email
-              <input
-                type="email"
+              Role
+              <select
                 className="h-11 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none focus:border-cyan-700 focus:ring-2 focus:ring-cyan-100"
-                {...register("email")}
-              />
-              {errors.email?.message ? (
-                <span className="text-xs font-medium text-red-600">{errors.email.message}</span>
-              ) : null}
-            </label>
-            <label className="grid gap-2 text-sm font-medium text-slate-700">
-              Password
-              <input
-                type="password"
-                className="h-11 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none focus:border-cyan-700 focus:ring-2 focus:ring-cyan-100"
-                {...register("password")}
-              />
-              {errors.password?.message ? (
-                <span className="text-xs font-medium text-red-600">{errors.password.message}</span>
+                {...register("role")}
+              >
+                {INTERNAL_ROLES.map((role) => (
+                  <option key={role} value={role}>
+                    {roleLabels[role]}
+                  </option>
+                ))}
+              </select>
+              {errors.role?.message ? (
+                <span className="text-xs font-medium text-red-600">{errors.role.message}</span>
               ) : null}
             </label>
             <button
@@ -102,7 +95,8 @@ function LoginForm() {
               className="mt-2 inline-flex h-11 items-center justify-center gap-2 rounded-md bg-cyan-700 px-4 text-sm font-semibold text-white hover:bg-cyan-800 disabled:cursor-not-allowed disabled:opacity-70"
             >
               {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Sign in
+              {!isSubmitting ? <LogIn className="h-4 w-4" /> : null}
+              Start demo
             </button>
           </form>
         </div>

@@ -8,7 +8,7 @@ import { mapEmployee } from "@/services/api/mappers";
 const schema = z.object({
   employee_code: z.string().min(1),
   full_name: z.string().min(1),
-  nic: z.string().min(1),
+  nic: z.string().optional(),
   phone: z.string().min(1),
   email: z.string().email().optional(),
   address: z.string().optional(),
@@ -24,7 +24,7 @@ const schema = z.object({
 
 export async function getEmployees() {
   const supabase = createAdminClient();
-  const { data, error } = await supabase.from("employees").select("*, departments(*), positions(*), work_roles(*)").order("full_name");
+  const { data, error } = await supabase.from("employees").select("*, departments(*), positions(*)").order("full_name");
   if (error) throw new Error(error.message);
   return (data ?? []).map((row) => mapEmployee(row));
 }
@@ -33,12 +33,12 @@ export async function getEmployeeById(id: string) {
   const supabase = createAdminClient();
   const numericId = await resolveId("employees", idSchema.parse(id), "employee_code");
   if (!numericId) return undefined;
-  const { data, error } = await supabase.from("employees").select("*, departments(*), positions(*), work_roles(*)").eq("id", numericId).single();
+  const { data, error } = await supabase.from("employees").select("*, departments(*), positions(*)").eq("id", numericId).single();
   if (error) throw new Error(error.message);
   const employee = mapEmployee(data);
   const [{ data: assignments }, { data: attendance }, { data: payrollLines }] = await Promise.all([
     supabase.from("employee_site_assignments").select("*, sites(*)").eq("employee_id", numericId),
-    supabase.from("attendance").select("*, sites(*)").eq("employee_id", numericId),
+    supabase.from("attendance").select("*").eq("employee_id", numericId),
     supabase.from("payroll_lines").select("*, payroll_batches(*)").eq("employee_id", numericId),
   ]);
   return {
@@ -53,7 +53,21 @@ export async function getEmployeeById(id: string) {
 export async function createEmployee(payload: unknown, userId: string) {
   const input = schema.parse(payload);
   const supabase = createAdminClient();
-  const { data, error } = await supabase.from("employees").insert({ ...input, created_by: userId }).select("*, departments(*), positions(*), work_roles(*)").single();
+  const { data, error } = await supabase
+    .from("employees")
+    .insert({
+      employee_code: input.employee_code,
+      full_name: input.full_name,
+      email: input.email,
+      phone: input.phone,
+      department_id: input.department_id,
+      position_id: input.position_id,
+      joined_on: input.joining_date,
+      salary_type: input.salary_type,
+      base_salary: input.basic_salary,
+    })
+    .select("*, departments(*), positions(*)")
+    .single();
   if (error) throw new Error(error.message);
   await auditLog({ userId, action: "create", module: "employees", recordId: data.id, newValues: data });
   return mapEmployee(data);
