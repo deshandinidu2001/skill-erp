@@ -2,8 +2,9 @@
 
 import type { ColumnDef } from "@tanstack/react-table";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -18,7 +19,7 @@ import { FormField } from "@/components/forms/FormField";
 import { FormSection } from "@/components/forms/FormSection";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { formatCurrency } from "@/lib/utils";
-import { getVehicleById, getVehicles, requiresAssignmentWarning } from "@/services/api/client/vehicles.service";
+import { createVehicle, getVehicleById, getVehicles, requiresAssignmentWarning } from "@/services/api/client/vehicles.service";
 import type { FuelLog, MaintenanceLog, MeterLog, Vehicle, VehicleAssignment } from "@/types";
 
 export function VehicleListPage() {
@@ -48,7 +49,7 @@ export function VehicleListPage() {
 
 const vehicleSchema = z.object({
   registrationNumber: z.string().min(2, "Registration number is required"),
-  vehicleCode: z.string().min(1, "Vehicle code is required"),
+  vehicleCode: z.string().optional(),
   category: z.enum(["car", "van", "truck", "machinery", "other"]),
   ownershipStatus: z.enum(["owned", "leased"]),
   currentStatus: z.enum(["available", "assigned", "maintenance", "unavailable", "retired"]),
@@ -59,9 +60,58 @@ const vehicleSchema = z.object({
 });
 
 export function VehicleFormPage() {
+  const router = useRouter();
+  const queryClient = useQueryClient();
   const { register, handleSubmit, formState: { errors } } = useForm<z.input<typeof vehicleSchema>, unknown, z.output<typeof vehicleSchema>>({ resolver: zodResolver(vehicleSchema), defaultValues: { category: "truck", ownershipStatus: "owned", currentStatus: "available" } });
   const [toast, setToast] = useState<string | null>(null);
-  return <div className="grid gap-6">{toast ? <div className="rounded-md border border-cyan-200 bg-cyan-50 p-3 text-sm text-cyan-800">{toast}</div> : null}<PageHeader title="New Vehicle" description="Create vehicle master record with expiry dates and meter reading." /><form onSubmit={handleSubmit((v) => setToast(`Validated ${v.registrationNumber}.`))}><FormSection title="Vehicle Details"><div className="grid gap-4 md:grid-cols-2"><FormField label="Vehicle Code" error={errors.vehicleCode?.message} {...register("vehicleCode")} /><FormField label="Registration Number" error={errors.registrationNumber?.message} {...register("registrationNumber")} /><FormSelect label="Category" options={["car", "van", "truck", "machinery", "other"]} {...register("category")} /><FormSelect label="Ownership" options={["owned", "leased"]} {...register("ownershipStatus")} /><FormSelect label="Status" options={["available", "assigned", "maintenance", "unavailable", "retired"]} {...register("currentStatus")} /><FormField label="Insurance Expiry" type="date" error={errors.insuranceExpiry?.message} {...register("insuranceExpiry")} /><FormField label="License Expiry" type="date" error={errors.licenseExpiry?.message} {...register("licenseExpiry")} /><FormField label="Meter Reading" type="number" error={errors.currentMeterReading?.message} {...register("currentMeterReading")} /><FormField label="Notes" error={errors.notes?.message} {...register("notes")} /></div></FormSection><button className="mt-4 h-10 rounded-md bg-cyan-700 px-4 text-sm font-semibold text-white">Save Vehicle</button></form></div>;
+
+  const mutation = useMutation({
+    mutationFn: (values: z.output<typeof vehicleSchema>) =>
+      createVehicle({
+        registrationNumber: values.registrationNumber,
+        vehicleCode: values.vehicleCode || undefined,
+        category: values.category,
+        ownershipStatus: values.ownershipStatus,
+        currentStatus: values.currentStatus,
+        insuranceExpiry: values.insuranceExpiry,
+        licenseExpiry: values.licenseExpiry,
+        meterReading: values.currentMeterReading,
+        notes: values.notes,
+      } as any),
+    onSuccess: () => {
+      setToast("Vehicle registered successfully.");
+      queryClient.invalidateQueries({ queryKey: ["vehicles"] });
+      setTimeout(() => {
+        router.push("/vehicles");
+      }, 1500);
+    },
+    onError: (error) => setToast(error instanceof Error ? error.message : "Could not save vehicle."),
+  });
+
+  return (
+    <div className="grid gap-6">
+      {toast ? <div className="rounded-md border border-cyan-200 bg-cyan-50 p-3 text-sm text-cyan-800">{toast}</div> : null}
+      <PageHeader title="New Vehicle" description="Create vehicle master record with expiry dates and meter reading." />
+      <form onSubmit={handleSubmit((v) => mutation.mutate(v))}>
+        <FormSection title="Vehicle Details">
+          <div className="grid gap-4 md:grid-cols-2">
+            <FormField label="Vehicle Code (Leave blank to auto-generate)" error={errors.vehicleCode?.message} {...register("vehicleCode")} />
+            <FormField label="Registration Number" error={errors.registrationNumber?.message} {...register("registrationNumber")} />
+            <FormSelect label="Category" options={["car", "van", "truck", "machinery", "other"]} {...register("category")} />
+            <FormSelect label="Ownership" options={["owned", "leased"]} {...register("ownershipStatus")} />
+            <FormSelect label="Status" options={["available", "assigned", "maintenance", "unavailable", "retired"]} {...register("currentStatus")} />
+            <FormField label="Insurance Expiry" type="date" error={errors.insuranceExpiry?.message} {...register("insuranceExpiry")} />
+            <FormField label="License Expiry" type="date" error={errors.licenseExpiry?.message} {...register("licenseExpiry")} />
+            <FormField label="Meter Reading" type="number" error={errors.currentMeterReading?.message} {...register("currentMeterReading")} />
+            <FormField label="Notes" error={errors.notes?.message} {...register("notes")} />
+          </div>
+        </FormSection>
+        <button className="mt-4 h-10 rounded-md bg-cyan-700 px-4 text-sm font-semibold text-white" disabled={mutation.isPending}>
+          {mutation.isPending ? "Saving..." : "Save Vehicle"}
+        </button>
+      </form>
+    </div>
+  );
 }
 
 export function VehicleDetailPage({ id }: { id: string }) {

@@ -44,7 +44,7 @@ export async function getProjects(filters?: FilterParams) {
   const supabase = createAdminClient();
   let query = supabase
     .from("projects")
-    .select("*, customers(*), sites(*), quotations(*), app_users!manager_id(full_name,id)")
+    .select("*, customers(*), sites!site_id(*), quotations!quotation_id(*), app_users!manager_id(full_name,id)")
     .order("created_at", { ascending: false });
   if (filters?.status) query = query.eq("status", filters.status as never);
   const { data, error } = await query;
@@ -58,7 +58,7 @@ export async function getProjectById(id: string) {
   if (!numericId) return undefined;
   const { data, error } = await supabase
     .from("projects")
-    .select("*, customers(*), sites(*), quotations(*), app_users!manager_id(full_name,id)")
+    .select("*, customers(*), sites!site_id(*), quotations!quotation_id(*), app_users!manager_id(full_name,id)")
     .eq("id", numericId)
     .single();
   if (error) throw new Error(error.message);
@@ -69,28 +69,65 @@ export async function getProjectDetail(id: string) {
   const supabase = createAdminClient();
   const numericId = await resolveId("projects", idSchema.parse(id), "project_code");
   if (!numericId) return undefined;
+
+  const { data: projRow } = await supabase.from("projects").select("site_id").eq("id", numericId).single();
+  const siteId = projRow?.site_id;
+
   const project = await getProjectById(String(numericId));
   if (!project) return undefined;
-  const [{ data: expenses }, { data: payments }, { data: requests }, { data: pos }, { data: inventory }, { data: docs }, { data: logs }] =
-    await Promise.all([
-      supabase.from("project_expenses").select("*, expense_categories(*)").eq("project_id", numericId),
-      supabase.from("client_payments").select("*, customers(*)").eq("project_id", numericId),
-      supabase.from("stock_requests").select("*, projects(*), sites(*), app_users!requested_by(full_name,id), stock_request_items(*, materials(*), units_of_measure(*))").eq("project_id", numericId),
-      supabase.from("purchase_orders").select("*, suppliers(*), projects(*), sites(*), stock_requests(*), purchase_order_items(*, materials(*), units_of_measure(*))").eq("project_id", numericId),
-      supabase.from("site_inventory").select("*, sites(*), materials(*, units_of_measure(*))"),
-      supabase.from("file_attachments").select("*").eq("entity_type", "project").eq("entity_id", numericId),
-      supabase.from("project_status_logs").select("*").eq("project_id", numericId),
-    ]);
+
+  const [
+    { data: expenses },
+    { data: payments },
+    { data: requests },
+    { data: pos },
+    { data: inventory },
+    { data: docs },
+    { data: logs },
+    { data: tokenData },
+    { data: assignments },
+    { data: vehicleAssignments },
+  ] = await Promise.all([
+    supabase.from("project_expenses").select("*, expense_categories(*)").eq("project_id", numericId),
+    supabase.from("client_payments").select("*, customers(*)").eq("project_id", numericId),
+    supabase.from("stock_requests").select("*, projects(*), sites(*), app_users!requested_by(full_name,id), stock_request_items(*, materials(*), units_of_measure(*))").eq("project_id", numericId),
+    supabase.from("purchase_orders").select("*, suppliers(*), projects(*), sites(*), stock_requests(*), purchase_order_items(*, materials(*), units_of_measure(*))").eq("project_id", numericId),
+    supabase.from("site_inventory").select("*, sites(*), materials(*, units_of_measure(*))"),
+    supabase.from("file_attachments").select("*").eq("entity_type", "project").eq("entity_id", numericId),
+    supabase.from("project_status_logs").select("*").eq("project_id", numericId),
+    supabase.from("client_access_tokens").select("token").eq("project_id", numericId).eq("is_active", true).maybeSingle(),
+    siteId ? supabase.from("employee_site_assignments").select("*, employees(*)").eq("site_id", siteId) : Promise.resolve({ data: [] }),
+    supabase.from("vehicle_assignments").select("*, vehicles(*)").eq("project_id", numericId),
+  ]);
+
   return {
     project,
+    clientToken: tokenData?.token,
     quotation: undefined,
-    team: [],
+    team: (assignments ?? []).map((row: any) => ({
+      id: String(row.id),
+      project_id: String(numericId),
+      employeeId: String(row.employee_id),
+      employeeName: String(row.employees?.full_name ?? ""),
+      roleOnProject: String(row.employees?.position ?? "Member"),
+      assignedDate: String(row.from_date ?? row.assigned_from ?? ""),
+      status: "active" as const,
+    })),
     progressUpdates: [],
     expenses: (expenses ?? []).map((row) => mapProjectExpense(row)),
     payments: (payments ?? []).map((row) => mapClientPayment(row)),
     stockRequests: (requests ?? []).map((row) => mapStockRequest(row)),
     purchaseOrders: (pos ?? []).map((row) => mapPurchaseOrder(row)),
-    vehicles: [],
+    vehicles: (vehicleAssignments ?? []).map((row: any) => ({
+      id: String(row.id),
+      project_id: String(numericId),
+      vehicleId: String(row.vehicle_id),
+      vehicleNo: String(row.vehicles?.registration_no ?? ""),
+      category: String(row.vehicles?.category ?? ""),
+      assignedDate: String(row.assigned_from ?? ""),
+      removedDate: row.assigned_to ? String(row.assigned_to) : undefined,
+      status: row.assigned_to ? ("removed" as const) : ("active" as const),
+    })),
     documents: (docs ?? []).map((row) => ({ id: String(row.id), parentId: String(row.entity_id), name: row.original_name, type: row.mime_type, uploader: String(row.uploaded_by ?? ""), date: String(row.created_at).slice(0, 10) })),
     pettyCash: [],
     journalEntries: [],
@@ -117,10 +154,41 @@ export async function createProject(payload: unknown, userId: string) {
       end_date: input.end_date,
       manager_id: input.assigned_project_manager_id,
       status: "created",
+      quotation_id: input.quotation_id,
+      boq_id: input.boq_id,
     })
     .select()
     .single();
   if (error) throw new Error(error.message);
+
+  // 1. Create a site for this project
+  const siteCode = `STE-${String(Math.floor(1000 + Math.random() * 9000))}`;
+  const { data: site, error: siteError } = await supabase
+    .from("sites")
+    .insert({
+      project_id: data.id,
+      name: `${input.project_name} Site`,
+      site_name: `${input.project_name} Site`,
+      site_code: siteCode,
+    })
+    .select()
+    .single();
+    
+  if (!siteError && site) {
+    await supabase.from("projects").update({ site_id: site.id }).eq("id", data.id);
+    data.site_id = site.id;
+  }
+
+  // 2. Create a client access token for the client portal
+  await supabase
+    .from("client_access_tokens")
+    .insert({
+      customer_id: input.client_id,
+      project_id: data.id,
+      expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // 1 year expiry
+      is_active: true,
+    });
+
   await auditLog({ userId, action: "create", module: "projects", recordId: data.id, newValues: data });
   return mapProject(data);
 }
@@ -192,8 +260,35 @@ export async function createFromQuotation(quotationId: string, userId?: string) 
   );
 }
 
-export async function assignTeamMember() {
-  throw new Error("Team assignment requires employee and project IDs from the real database.");
+export async function assignTeamMember(projectId: string, employeeId: string, userId?: string) {
+  const supabase = createAdminClient();
+  const numericProjectId = await resolveId("projects", idSchema.parse(projectId), "project_code");
+  if (!numericProjectId) throw new Error("Project not found.");
+
+  const { data: projRow } = await supabase.from("projects").select("site_id").eq("id", numericProjectId).single();
+  const siteId = projRow?.site_id;
+  if (!siteId) throw new Error("Site not found for this project.");
+
+  const numericEmployeeId = await resolveId("employees", idSchema.parse(employeeId), "employee_code");
+  if (!numericEmployeeId) throw new Error("Employee not found.");
+
+  const { data: employee, error: employeeError } = await supabase.from("employees").select("is_active").eq("id", numericEmployeeId).single();
+  if (employeeError || !employee?.is_active) throw new Error("Employee not found or is inactive.");
+
+  const { data, error } = await supabase
+    .from("employee_site_assignments")
+    .insert({
+      employee_id: numericEmployeeId,
+      site_id: siteId,
+      from_date: new Date().toISOString().slice(0, 10),
+      assigned_by: userId,
+    })
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+  await auditLog({ userId, action: "create", module: "employee_site_assignments", recordId: data.id, newValues: data });
+  return data;
 }
 
 export async function issuePettyCash() {

@@ -34,3 +34,37 @@ export function getClientPortal(token: string) {
 export function submitClientQuotationResponse(token: string, decision: "approved" | "rejected" | "revision_requested", reason?: string) {
   return apiPost(`/api/client/portal/${encodeURIComponent(token)}`, { decision, reason });
 }
+
+export type ClientQuotationPortalData =
+  | { valid: false }
+  | {
+      valid: true;
+      quotation: {
+        id: number;
+        code: string;
+        version: number;
+        status: string;
+        grandTotal: number;
+        subtotal: number;
+        discount: number;
+        taxTotal: number;
+        validUntil: string;
+        paymentTerms: string;
+        notes: string;
+        boqLines: Array<{ section: string; itemName: string; description: string; qty: number; unit: string }>;
+      };
+      client: {
+        name: string;
+        contactPerson: string;
+        email: string;
+        phone: string;
+      };
+    };
+
+export function getClientQuotationPortal(token: string) {
+  return apiGet<ClientQuotationPortalData>(`/api/client/portal/quotation/${encodeURIComponent(token)}`);
+}
+
+export function submitClientQuotationResponseDirect(token: string, decision: "approved" | "rejected" | "revision_requested", reason?: string) {
+  return apiPost(`/api/client/portal/quotation/${encodeURIComponent(token)}`, { decision, reason });
+}

@@ -1,4 +1,4 @@
-import { apiGet, apiPatch, asArray } from "@/services/api/client/http";
+import { apiGet, apiPatch, apiPost, asArray } from "@/services/api/client/http";
 import type { Estimation, FilterParams } from "@/types";
 
 export async function getEstimations(params?: FilterParams): Promise<Estimation[]> {
@@ -12,4 +12,12 @@ export function getEstimationById(id: string): Promise<Estimation | undefined> {
 
 export function markEstimationReady(id: string) {
   return apiPatch(`/api/estimations/${id}`, { action: "ready" });
+}
+
+export function createEstimation(input: any): Promise<Estimation> {
+  return apiPost("/api/estimations", input);
+}
+
+export function updateEstimation(id: string, input: any): Promise<Estimation> {
+  return apiPatch(`/api/estimations/${id}`, input);
 }

@@ -1,18 +1,18 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import Link from "next/link";
 import { Copy, GripVertical, Plus, Save, Trash2 } from "lucide-react";
 import type { InputHTMLAttributes } from "react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { FormSection } from "@/components/forms/FormSection";
 import { formatCurrency } from "@/lib/utils";
-import { getEstimationById } from "@/services/api/client/estimations.service";
+import { getEstimationById, createEstimation, updateEstimation, markEstimationReady } from "@/services/api/client/estimations.service";
 import { getLeads } from "@/services/api/client/leads.service";
 import type { BoqLine, EstimationLine } from "@/types";
 
@@ -32,13 +32,70 @@ type CostValues = z.output<typeof costSchema>;
 export function EstimationFormPage({ id }: { id?: string }) {
   const { data: existing } = useQuery({ queryKey: ["estimation", id], queryFn: () => (id ? getEstimationById(id) : Promise.resolve(undefined)) });
   const { data: leads = [] } = useQuery({ queryKey: ["leads", "qs-pending"], queryFn: () => getLeads() });
-  const lead = leads.find((item) => item.status === "qs_estimation_pending") ?? leads[0];
+  const [selectedLeadId, setSelectedLeadId] = useState<string | undefined>(undefined);
+  const lead = useMemo(() => {
+    if (selectedLeadId) {
+      return leads.find((item) => String(item.id) === String(selectedLeadId));
+    }
+    if (existing) {
+      return leads.find((item) => String(item.id) === String(existing.leadId));
+    }
+    return leads.find((item) => item.status === "qs_estimation_pending") ?? leads.find((item) => item.status === "new") ?? leads[0];
+  }, [leads, selectedLeadId, existing]);
+  
   const [boqOpen, setBoqOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-  const [lines, setLines] = useState<EstimationLine[]>(
-    existing?.lines ?? [{ id: "tmp_1", category: "Civil", description: "", qty: 1, unit: "m2", unitRate: 0, remarks: "" }],
-  );
-  const [boqLines, setBoqLines] = useState<BoqLine[]>(existing?.boqLines ?? [{ id: "boq_tmp_1", lineNo: 1, section: "General", itemName: "", description: "", qty: 1, unit: "m2", unitPrice: 0 }]);
+  
+  const [lines, setLines] = useState<EstimationLine[]>([
+    { id: "tmp_1", category: "Civil", description: "", qty: 1, unit: "m2", unitRate: 0, remarks: "" }
+  ]);
+  const [boqLines, setBoqLines] = useState<BoqLine[]>([
+    { id: "boq_tmp_1", lineNo: 1, section: "General", itemName: "", description: "", qty: 1, unit: "m2", unitPrice: 0 }
+  ]);
+
+  // Sync state when data is loaded from query
+  useEffect(() => {
+    if (existing) {
+      if (existing.lines && existing.lines.length > 0) {
+        setLines(existing.lines);
+      }
+      if (existing.boqLines && existing.boqLines.length > 0) {
+        setBoqLines(existing.boqLines);
+      }
+    }
+  }, [existing]);
+
+  const saveMutation = useMutation({
+    mutationFn: (payload: any) => {
+      if (id) {
+        return updateEstimation(id, payload);
+      } else {
+        return createEstimation(payload);
+      }
+    },
+    onSuccess: (data) => {
+      setToast("Draft saved successfully.");
+      setTimeout(() => {
+        window.location.href = "/qs/estimations";
+      }, 1500);
+    },
+    onError: (err: any) => {
+      setToast(`Error saving draft: ${err.message}`);
+    }
+  });
+
+  const readyMutation = useMutation({
+    mutationFn: (estId: string) => markEstimationReady(estId),
+    onSuccess: () => {
+      setToast("Estimation marked ready and quotation generated successfully!");
+      setTimeout(() => {
+        window.location.href = "/qs/estimations";
+      }, 1500);
+    },
+    onError: (err: any) => {
+      setToast(`Error marking ready: ${err.message}`);
+    }
+  });
 
   const {
     register,
@@ -80,15 +137,47 @@ export function EstimationFormPage({ id }: { id?: string }) {
   );
 
   function onSubmit(values: CostValues) {
-    const parsed = costSchema.parse(values);
     const hasLines = lines.some((line) => line.description.trim() && Number(line.qty) > 0);
     const hasCosts = subtotal > 0;
-    if (!lead || lead.status !== "qs_estimation_pending" || (!hasLines && !hasCosts)) {
-      setToast("Validation blocked: lead must be QS Estimation Pending and at least one line or cost component is required.");
+    const isEligibleStatus = lead && ["new", "under_review", "qs_estimation_pending"].includes(lead.status);
+    if (!lead || !isEligibleStatus || (!hasLines && !hasCosts)) {
+      setToast("Validation blocked: lead must be New, Under Review, or QS Estimation Pending, and at least one line or cost component is required.");
       return;
     }
-    setToast(`Draft saved. Grand total ${formatCurrency(grandTotal)}.`);
-    return parsed;
+
+    const payload = {
+      lead_id: Number(lead.id),
+      material_cost_total: Number(values.materialCostTotal),
+      labour_cost_total: Number(values.labourCostTotal),
+      equipment_cost_total: Number(values.equipmentCostTotal),
+      overhead_cost_total: Number(values.overheadCostTotal),
+      profit_margin_pct: Number(values.profitMarginPercent),
+      notes: values.notes || "",
+      revision_notes: values.revisionNotes || "",
+      lines: lines
+        .filter((l) => l.description.trim())
+        .map((l) => ({
+          category: l.category,
+          description: l.description,
+          qty: Number(l.qty),
+          unit: l.unit,
+          unitRate: Number(l.unitRate),
+          remarks: l.remarks,
+        })),
+      boqLines: boqLines
+        .filter((b) => b.description.trim() || b.itemName.trim())
+        .map((b) => ({
+          lineNo: Number(b.lineNo),
+          section: b.section,
+          itemName: b.itemName || b.description,
+          description: b.description || b.itemName,
+          qty: Number(b.qty),
+          unit: b.unit,
+          unitPrice: Number(b.unitPrice),
+        })),
+    };
+
+    saveMutation.mutate(payload);
   }
 
   return (
@@ -97,12 +186,33 @@ export function EstimationFormPage({ id }: { id?: string }) {
       <PageHeader title={id ? "Edit Estimation" : "New Estimation"} description="Build costs, line items, BOQ rows, and revision notes." />
       <form onSubmit={handleSubmit(onSubmit)} className="grid gap-5">
         <section className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-base font-semibold text-slate-950">Lead Reference</h2>
-          <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-slate-600">
-            <span className="font-semibold text-slate-950">{lead?.code ?? "No lead selected"}</span>
-            <span>{lead?.customerName ?? "-"}</span>
-            <span>{lead?.projectType ?? "-"}</span>
-            {lead ? <StatusBadge status={lead.status} /> : null}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-base font-semibold text-slate-950">Lead Reference</h2>
+              <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-slate-600">
+                <span className="font-semibold text-slate-950">{lead?.code ?? "No lead selected"}</span>
+                <span>{lead?.customerName ?? "-"}</span>
+                <span>{lead?.projectType ?? "-"}</span>
+                {lead ? <StatusBadge status={lead.status} /> : null}
+              </div>
+            </div>
+            {!id && (
+              <div className="grid gap-1">
+                <span className="text-xs font-semibold uppercase text-slate-500">Select Lead</span>
+                <select
+                  value={lead?.id ?? ""}
+                  onChange={(e) => setSelectedLeadId(e.target.value)}
+                  className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-cyan-500 focus:outline-none"
+                >
+                  <option value="" disabled>-- Choose Lead --</option>
+                  {leads.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.code} - {l.customerName} ({l.status})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
         </section>
         <FormSection title="Cost Summary Inputs">
@@ -135,7 +245,19 @@ export function EstimationFormPage({ id }: { id?: string }) {
         </FormSection>
         <div className="flex flex-wrap gap-2">
           <button type="submit" className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-300 px-4 text-sm font-semibold"><Save className="h-4 w-4" />Save Draft</button>
-          <button type="button" onClick={() => setToast("Marked ready for quotation in mock state.")} className="inline-flex h-10 items-center rounded-md bg-cyan-700 px-4 text-sm font-semibold text-white">Mark Ready for Quotation</button>
+          <button
+            type="button"
+            onClick={() => {
+              if (id) {
+                readyMutation.mutate(id);
+              } else {
+                setToast("Please save the draft first before marking it ready.");
+              }
+            }}
+            className="inline-flex h-10 items-center rounded-md bg-cyan-700 px-4 text-sm font-semibold text-white"
+          >
+            Mark Ready for Quotation
+          </button>
           <button type="button" onClick={() => setBoqOpen(true)} className="inline-flex h-10 items-center rounded-md border border-slate-300 px-4 text-sm font-semibold">Open BOQ Builder</button>
           <Link href="/qs/estimations" className="inline-flex h-10 items-center rounded-md px-4 text-sm font-semibold text-slate-600">Cancel</Link>
         </div>

@@ -105,18 +105,59 @@ function Button({ label, onClick, destructive, icon: Icon }: { label: string; on
 }
 
 function Summary({ quotation }: { quotation: Quotation }) {
+  const [copied, setCopied] = useState(false);
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const portalUrl = quotation.clientToken ? `${origin}/client/quotation/${quotation.clientToken}` : "";
+
+  const handleCopy = () => {
+    if (!portalUrl) return;
+    navigator.clipboard.writeText(portalUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
-    <section className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
-      <h2 className="text-base font-semibold text-slate-950">Commercial Summary</h2>
-      <dl className="mt-4 grid gap-4 md:grid-cols-3">
-        <Item label="Linked Lead" value={quotation.leadCode} />
-        <Item label="Customer" value={quotation.customerName} />
-        <Item label="Grand Total" value={formatCurrency(quotation.grandTotal)} />
-        <Item label="Payment Terms" value={quotation.paymentTerms} />
-        <Item label="Valid Until" value={quotation.validUntil} />
-        <Item label="Owner" value={quotation.owner} />
-      </dl>
-    </section>
+    <div className="grid gap-6">
+      <section className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 className="text-base font-semibold text-slate-950">Commercial Summary</h2>
+        <dl className="mt-4 grid gap-4 md:grid-cols-3">
+          <Item label="Linked Lead" value={quotation.leadCode} />
+          <Item label="Customer" value={quotation.customerName} />
+          <Item label="Grand Total" value={formatCurrency(quotation.grandTotal)} />
+          <Item label="Payment Terms" value={quotation.paymentTerms} />
+          <Item label="Valid Until" value={quotation.validUntil} />
+          <Item label="Owner" value={quotation.owner} />
+        </dl>
+      </section>
+
+      {quotation.clientToken ? (
+        <section className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 className="text-base font-semibold text-slate-950">Client Portal Link</h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Share this secure link with the client to let them review, approve, or reject this quotation.
+          </p>
+          <div className="mt-3 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <span className="select-all rounded bg-slate-50 border border-slate-200 px-3 py-2 text-xs font-mono text-slate-800 break-all flex-1">
+              {portalUrl}
+            </span>
+            <button
+              onClick={handleCopy}
+              className="rounded-md bg-cyan-700 hover:bg-cyan-800 text-xs font-semibold text-white px-4 py-2 transition-colors cursor-pointer shrink-0"
+            >
+              {copied ? "Copied!" : "Copy Link"}
+            </button>
+            <a
+              href={`/client/quotation/${quotation.clientToken}`}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-md border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 px-4 py-2 transition-colors shrink-0 text-center"
+            >
+              Open Viewer
+            </a>
+          </div>
+        </section>
+      ) : null}
+    </div>
   );
 }
 

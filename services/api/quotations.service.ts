@@ -53,7 +53,35 @@ export async function getQuotationById(id: string) {
     .single();
   if (error) throw new Error(error.message);
   const mapped = mapQuotation(data);
-  mapped.clientResponses = [];
+  
+  // Fetch active client token
+  const { data: tokenData } = await supabase
+    .from("client_access_tokens")
+    .select("token")
+    .eq("quotation_id", numericId)
+    .eq("is_active", true)
+    .maybeSingle();
+
+  if (tokenData) {
+    mapped.clientToken = tokenData.token;
+  }
+
+  // Fetch client response history
+  const { data: responses } = await supabase
+    .from("client_responses")
+    .select("*")
+    .eq("quotation_id", numericId)
+    .order("created_at", { ascending: false });
+
+  mapped.clientResponses = (responses ?? []).map((row) => ({
+    id: String(row.id),
+    quotationId: id,
+    decision: row.response as "approved" | "rejected" | "revision_requested",
+    reason: row.remarks || row.message || "",
+    date: row.created_at ? String(row.created_at).slice(0, 10) : "",
+    owner: row.source || "client",
+  }));
+
   return mapped;
 }
 
@@ -68,6 +96,7 @@ export async function createQuotation(payload: unknown, userId: string) {
     .insert({
       lead_id: input.lead_id,
       estimation_id: input.estimation_id,
+      boq_id: input.boq_id,
       quotation_no: code,
       title: code,
       valid_until: input.valid_until,
@@ -95,13 +124,54 @@ export async function markQuotationStatus(id: string, status: string, reason?: s
   const patch: Record<string, unknown> = { status: dbStatus };
   const { data, error } = await supabase.from("quotations").update(patch).eq("id", numericId).select().single();
   if (error) throw new Error(error.message);
+
   if (["approved", "rejected", "revision_requested"].includes(dbStatus)) {
     await supabase.from("client_responses").insert({
-      project_id: data.project_id,
+      project_id: data.project_id ?? null,
+      lead_id: data.lead_id,
+      quotation_id: data.id,
+      response: dbStatus,
       response_type: dbStatus,
+      source: userId ? "marketing" : "client",
       message: reason ?? `Quotation ${dbStatus}`,
+      remarks: reason ?? `Quotation ${dbStatus}`,
     });
+
+    // Update lead status to match quotation status
+    let newLeadStatus = "under_review";
+    if (dbStatus === "approved") newLeadStatus = "approved";
+    if (dbStatus === "rejected") newLeadStatus = "rejected";
+    if (dbStatus === "revision_requested") newLeadStatus = "revision_requested";
+    await supabase.from("leads").update({ status: newLeadStatus }).eq("id", data.lead_id);
+  } else if (dbStatus === "client_sent") {
+    // When sent to client, update lead status to quotation_submitted
+    await supabase.from("leads").update({ status: "quotation_submitted" }).eq("id", data.lead_id);
+
+    const { data: leadData } = await supabase
+      .from("leads")
+      .select("customer_id")
+      .eq("id", data.lead_id)
+      .single();
+
+    const { data: existingToken } = await supabase
+      .from("client_access_tokens")
+      .select("token")
+      .eq("quotation_id", data.id)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (!existingToken) {
+      await supabase
+        .from("client_access_tokens")
+        .insert({
+          customer_id: leadData?.customer_id || null,
+          quotation_id: data.id,
+          expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+          is_active: true,
+        });
+    }
   }
+
   await auditLog({ userId, action: "update", module: "quotations", recordId: numericId, oldValues: current, newValues: patch });
   return mapQuotation(data);
 }

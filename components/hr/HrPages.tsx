@@ -4,6 +4,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Lock, Plus, Printer } from "lucide-react";
 import type { Dispatch, SetStateAction } from "react";
 import { useMemo, useState } from "react";
@@ -21,6 +22,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { formatCurrency } from "@/lib/utils";
 import {
   calculatePayrollLine,
+  createEmployee,
   getAttendance,
   getEmployeeById,
   getEmployees,
@@ -88,22 +90,53 @@ const employeeSchema = z.object({
 
 export function EmployeeFormPage() {
   const { role } = useCurrentUser();
+  const router = useRouter();
+  const queryClient = useQueryClient();
   const salaryVisible = role === "hr_manager" || role === "super_admin";
   const { register, handleSubmit, formState: { errors } } = useForm<z.input<typeof employeeSchema>, unknown, z.output<typeof employeeSchema>>({
     resolver: zodResolver(employeeSchema),
     defaultValues: { salaryType: "monthly", department: "Projects" },
   });
   const [toast, setToast] = useState<string | null>(null);
+
+  const mutation = useMutation({
+    mutationFn: (values: z.output<typeof employeeSchema>) =>
+      createEmployee({
+        full_name: values.fullName,
+        nic: values.nic,
+        phone: values.phone,
+        email: values.email,
+        address: values.address,
+        department: values.department,
+        position: values.position,
+        joining_date: values.joiningDate || new Date().toISOString().slice(0, 10),
+        salary_type: values.salaryType,
+        basic_salary: Number(values.basicSalary),
+        allowances: [],
+        deductions: [],
+      } as any),
+    onSuccess: () => {
+      setToast("Employee created successfully.");
+      queryClient.invalidateQueries({ queryKey: ["employees"] });
+      setTimeout(() => {
+        router.push("/hr/employees");
+      }, 1500);
+    },
+    onError: (error) => setToast(error instanceof Error ? error.message : "Could not create employee."),
+  });
+
   return (
     <div className="grid gap-6">
       {toast ? <div className="rounded-md border border-cyan-200 bg-cyan-50 p-3 text-sm text-cyan-800">{toast}</div> : null}
       <PageHeader title="New Employee" description="Create employee personal, job, salary, and document records." />
-      <form onSubmit={handleSubmit((values) => setToast(`Validated employee ${values.fullName}.`))} className="grid gap-5">
+      <form onSubmit={handleSubmit((values) => mutation.mutate(values))} className="grid gap-5">
         <FormSection title="Personal Info"><div className="grid gap-4 md:grid-cols-2"><FormField label="Full name" error={errors.fullName?.message} {...register("fullName")} /><FormField label="NIC" error={errors.nic?.message} {...register("nic")} /><FormField label="Phone" error={errors.phone?.message} {...register("phone")} /><FormField label="Email" error={errors.email?.message} {...register("email")} /><FormField label="Address" error={errors.address?.message} {...register("address")} /></div></FormSection>
         <FormSection title="Job Info"><div className="grid gap-4 md:grid-cols-2"><FormField label="Department" error={errors.department?.message} {...register("department")} /><FormField label="Position" error={errors.position?.message} {...register("position")} /><FormField label="Work role" error={errors.workRole?.message} {...register("workRole")} /><FormField label="Joining date" type="date" error={errors.joiningDate?.message} {...register("joiningDate")} /></div></FormSection>
         {salaryVisible ? <FormSection title="Salary Info"><div className="grid gap-4 md:grid-cols-3"><label className="grid gap-1.5"><span className="text-sm font-medium text-slate-700">Salary type</span><select {...register("salaryType")} className="h-10 rounded-md border border-slate-300 px-3 text-sm"><option value="monthly">monthly</option><option value="daily">daily</option><option value="hourly">hourly</option></select></label><FormField label="Basic salary" type="number" error={errors.basicSalary?.message} {...register("basicSalary")} /><FormField label="Allowances" placeholder="Transport:25000" /><FormField label="Deductions" placeholder="Loan:5000" /></div></FormSection> : null}
         <FormSection title="Documents"><input type="file" multiple className="text-sm" /><p className="text-sm text-slate-500">Upload NIC copy, contract, and other documents.</p></FormSection>
-        <button className="h-10 w-fit rounded-md bg-cyan-700 px-4 text-sm font-semibold text-white">Save Employee</button>
+        <button className="h-10 w-fit rounded-md bg-cyan-700 px-4 text-sm font-semibold text-white" disabled={mutation.isPending}>
+          {mutation.isPending ? "Saving..." : "Save Employee"}
+        </button>
       </form>
     </div>
   );

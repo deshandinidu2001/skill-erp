@@ -26,3 +26,23 @@ export function createVehicle(input: Vehicle) {
 export function requiresAssignmentWarning(vehicle: Vehicle) {
   return vehicle.status === "maintenance" || vehicle.status === "unavailable";
 }
+
+export function assignVehicle(id: string, payload: { projectId: string; employeeId?: string; assignedDate?: string }) {
+  return apiPost(`/api/vehicles/${id}`, { action: "assign", ...payload });
+}
+
+export function logMeterReading(id: string, payload: { reading: number; notes?: string; date?: string }) {
+  return apiPost(`/api/vehicles/${id}`, { action: "log_meter", ...payload });
+}
+
+export function logFuelUsage(id: string, payload: { liters: number; cost: number; odometer?: number; station?: string; date?: string }) {
+  return apiPost(`/api/vehicles/${id}`, { action: "log_fuel", ...payload });
+}
+
+export function logMaintenanceRecord(id: string, payload: { description: string; cost: number; nextDue?: string; date?: string }) {
+  return apiPost(`/api/vehicles/${id}`, { action: "log_maintenance", ...payload });
+}
+
+export function updateVehicleStatus(id: string, status: string) {
+  return apiPost(`/api/vehicles/${id}`, { action: "update_status", status });
+}

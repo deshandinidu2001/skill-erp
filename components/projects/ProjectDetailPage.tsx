@@ -16,7 +16,9 @@ import { StatCard } from "@/components/cards/StatCard";
 import { DataTable } from "@/components/tables/DataTable";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { formatCurrency } from "@/lib/utils";
-import { changeProjectStatus, getProjectDetail } from "@/services/api/client/projects.service";
+import { changeProjectStatus, getProjectDetail, assignTeamMember } from "@/services/api/client/projects.service";
+import { getEmployees } from "@/services/api/client/hr.service";
+import { getVehicles, assignVehicle } from "@/services/api/client/vehicles.service";
 import type { ClientPayment, InventoryBalance, JournalEntry, PettyCash, ProjectExpense, ProjectProgressUpdate, ProjectTeamAssignment, ProjectVehicleAssignment, StockRequest, PurchaseOrder } from "@/types";
 
 const tabs = ["Overview", "Team", "Progress", "Expenses", "Payments", "Stock", "Vehicles", "Documents", "Petty Cash", "Finance", "Timeline"] as const;
@@ -25,6 +27,8 @@ const closedStatuses = ["completed", "closed", "cancelled"];
 export function ProjectDetailPage({ id }: { id: string }) {
   const [tab, setTab] = useState<(typeof tabs)[number]>("Overview");
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [assignTeamOpen, setAssignTeamOpen] = useState(false);
+  const [assignVehicleOpen, setAssignVehicleOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const { role } = useCurrentUser();
   const queryClient = useQueryClient();
@@ -53,7 +57,7 @@ export function ProjectDetailPage({ id }: { id: string }) {
       <PageHeader
         title={`${project.code} - ${project.name}`}
         description={`${project.customer} / ${project.siteName} / ${project.manager}`}
-        actions={<div className="flex flex-wrap gap-2">{actions.map((action) => <button key={action} className="h-10 rounded-md border border-slate-300 px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50">{action}</button>)}{role === "super_admin" && !isLocked ? <button onClick={() => statusMutation.mutate({ status: "closed" })} className="h-10 rounded-md bg-cyan-700 px-3 text-sm font-semibold text-white">Close Project</button> : null}{!isLocked && (role === "project_manager" || role === "super_admin") ? <button onClick={() => setCancelOpen(true)} className="h-10 rounded-md border border-red-200 px-3 text-sm font-semibold text-red-700">Cancel</button> : null}</div>}
+        actions={<div className="flex flex-wrap gap-2">{actions.map((action) => <button key={action} onClick={() => { if (action === "Assign team member") setAssignTeamOpen(true); if (action === "Assign vehicle") setAssignVehicleOpen(true); }} className="h-10 rounded-md border border-slate-300 px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50">{action}</button>)}{role === "super_admin" && !isLocked ? <button onClick={() => statusMutation.mutate({ status: "closed" })} className="h-10 rounded-md bg-cyan-700 px-3 text-sm font-semibold text-white">Close Project</button> : null}{!isLocked && (role === "project_manager" || role === "super_admin") ? <button onClick={() => setCancelOpen(true)} className="h-10 rounded-md border border-red-200 px-3 text-sm font-semibold text-red-700">Cancel</button> : null}</div>}
       />
       <div className="grid gap-4 rounded-md border border-slate-200 bg-white p-5 shadow-sm lg:grid-cols-[1fr_280px]">
         <div>
@@ -66,17 +70,19 @@ export function ProjectDetailPage({ id }: { id: string }) {
         {tabs.filter((item) => item !== "Finance" || financeRole).map((item) => <button key={item} onClick={() => setTab(item)} className={`border-b-2 px-3 py-2 text-sm font-semibold ${tab === item ? "border-cyan-700 text-cyan-800" : "border-transparent text-slate-500"}`}>{item}</button>)}
       </div>
       {tab === "Overview" ? <Overview data={data} /> : null}
-      {tab === "Team" ? <TeamTab rows={data.team} locked={isLocked} /> : null}
+      {tab === "Team" ? <TeamTab rows={data.team} locked={isLocked} onAssignClick={() => setAssignTeamOpen(true)} /> : null}
       {tab === "Progress" ? <ProgressTab rows={data.progressUpdates} locked={isLocked} /> : null}
       {tab === "Expenses" ? <ExpensesTab rows={data.expenses} locked={isLocked} /> : null}
       {tab === "Payments" ? <PaymentsTab rows={data.payments} locked={isLocked} /> : null}
       {tab === "Stock" ? <StockTab requests={data.stockRequests} purchaseOrders={data.purchaseOrders} /> : null}
-      {tab === "Vehicles" ? <VehiclesTab rows={data.vehicles} locked={isLocked} /> : null}
+      {tab === "Vehicles" ? <VehiclesTab rows={data.vehicles} locked={isLocked} onAssignClick={() => setAssignVehicleOpen(true)} /> : null}
       {tab === "Documents" ? <DocumentsTab rows={data.documents.map((item) => ({ ...item, project_id: project.project_id }))} locked={isLocked} /> : null}
       {tab === "Petty Cash" ? <PettyCashTab rows={data.pettyCash} locked={isLocked} /> : null}
       {tab === "Finance" ? <FinanceTab expenses={data.expenses} payments={data.payments} inventory={data.inventory} /> : null}
       {tab === "Timeline" ? <section className="rounded-md border border-slate-200 bg-white p-5 shadow-sm"><ActivityTimeline items={data.timeline} /></section> : null}
       <ConfirmDialog open={cancelOpen} title="Cancel project" message="Cancelling requires a reason. This mock action records a standard cancellation reason." destructive onCancel={() => setCancelOpen(false)} onConfirm={() => { setCancelOpen(false); statusMutation.mutate({ status: "cancelled", reason: "Cancelled by authorized user." }); }} />
+      <AssignTeamDialog open={assignTeamOpen} projectId={id} onClose={() => setAssignTeamOpen(false)} onSuccess={() => { setToast("Team member assigned successfully."); queryClient.invalidateQueries({ queryKey: ["project-detail", id] }); }} />
+      <AssignVehicleDialog open={assignVehicleOpen} projectId={id} onClose={() => setAssignVehicleOpen(false)} onSuccess={() => { setToast("Vehicle assigned successfully."); queryClient.invalidateQueries({ queryKey: ["project-detail", id] }); }} />
     </div>
   );
 }
@@ -84,7 +90,8 @@ export function ProjectDetailPage({ id }: { id: string }) {
 function getProjectActions(role: string | undefined, locked: boolean) {
   if (locked) return [];
   const actions: string[] = [];
-  if (role === "project_manager" || role === "super_admin") actions.push("Edit project details", "Add progress update", "Add expense", "Assign team member", "Raise stock request", "Change project status");
+  if (role === "project_manager" || role === "super_admin") actions.push("Edit project details", "Add progress update", "Add expense", "Raise stock request", "Change project status");
+  if (role === "project_manager" || role === "super_admin" || role === "hr_manager") actions.push("Assign team member");
   if (role === "technical_officer") actions.push("Add progress update", "Upload document");
   if (role === "accountant" || role === "finance_manager" || role === "super_admin") actions.push("Record client payment");
   if (role === "vehicle_manager" || role === "super_admin") actions.push("Assign vehicle");
@@ -100,16 +107,16 @@ function Overview({ data }: { data: Awaited<ReturnType<typeof getProjectDetail>>
     <div className="grid gap-4 lg:grid-cols-3">
       <section className="rounded-md border border-slate-200 bg-white p-5 shadow-sm"><h2 className="font-semibold">Project Summary</h2><p className="mt-3 text-sm text-slate-600">{data.project.name} at {data.project.siteName} for {data.project.customer}. Dates {data.project.startDate} to {data.project.endDate}.</p></section>
       <section className="rounded-md border border-slate-200 bg-white p-5 shadow-sm"><h2 className="font-semibold">Linked Quotation</h2>{data.quotation ? <Link className="mt-3 block text-sm font-semibold text-cyan-800" href={`/quotations/${data.quotation.id}`}>{data.quotation.code} v{data.quotation.version} / {formatCurrency(data.quotation.grandTotal)}</Link> : <p className="mt-3 text-sm text-slate-500">No linked quotation.</p>}</section>
-      <section className="rounded-md border border-slate-200 bg-white p-5 shadow-sm"><h2 className="font-semibold">Profitability Snapshot</h2><p className="mt-3 text-sm text-slate-600">Income {formatCurrency(income)} / Expenses {formatCurrency(expenses)} / P&L {formatCurrency(income - expenses)}</p></section>
+      <section className="rounded-md border border-slate-200 bg-white p-5 shadow-sm"><h2 className="font-semibold">Client Portal Access</h2>{data.clientToken ? <div className="mt-3"><p className="text-xs text-slate-500 uppercase font-semibold">Portal Link</p><a href={`/client/${data.clientToken}`} target="_blank" rel="noreferrer" className="mt-1 block text-sm font-semibold text-cyan-700 hover:underline">Open Client Portal</a></div> : <p className="mt-3 text-sm text-slate-500">No active client token generated.</p>}</section>
       <section className="rounded-md border border-slate-200 bg-white p-5 shadow-sm lg:col-span-2"><h2 className="font-semibold">Budget vs Actual</h2><div className="mt-4 h-4 rounded-full bg-slate-100"><div className="h-4 rounded-full bg-cyan-700" style={{ width: `${Math.min(100, (expenses / data.project.budget) * 100)}%` }} /></div><p className="mt-2 text-sm text-slate-600">{formatCurrency(expenses)} spent of {formatCurrency(data.project.budget)}</p></section>
       <section className="rounded-md border border-slate-200 bg-white p-5 shadow-sm"><h2 className="font-semibold">Next Milestones</h2><ul className="mt-3 list-disc pl-4 text-sm text-slate-600"><li>Site access confirmation</li><li>Material delivery</li><li>Client progress review</li></ul></section>
     </div>
   );
 }
 
-function TeamTab({ rows, locked }: { rows: ProjectTeamAssignment[]; locked: boolean }) {
+function TeamTab({ rows, locked, onAssignClick }: { rows: ProjectTeamAssignment[]; locked: boolean; onAssignClick?: () => void }) {
   const columns: ColumnDef<ProjectTeamAssignment>[] = [{ accessorKey: "employeeName", header: "Employee" }, { accessorKey: "roleOnProject", header: "Role on Project" }, { accessorKey: "assignedDate", header: "Assigned Date" }, { accessorKey: "status", header: "Status", cell: ({ row }) => <StatusBadge status={row.original.status} /> }];
-  return <SectionAction title="Team" action="Assign Member" hidden={locked}><DataTable columns={columns} data={rows} /></SectionAction>;
+  return <SectionAction title="Team" action="Assign Member" hidden={locked} onActionClick={onAssignClick}><DataTable columns={columns} data={rows} /></SectionAction>;
 }
 
 function ProgressTab({ rows, locked }: { rows: ProjectProgressUpdate[]; locked: boolean }) {
@@ -132,9 +139,9 @@ function StockTab({ requests, purchaseOrders }: { requests: StockRequest[]; purc
   return <div className="grid gap-4"><Link href="/stock/requests/new" className="w-fit rounded-md bg-cyan-700 px-3 py-2 text-sm font-semibold text-white">Raise Stock Request</Link><DataTable columns={columns} data={requests} /><p className="text-sm text-slate-500">Linked POs: {purchaseOrders.map((po) => po.code).join(", ") || "None"}</p></div>;
 }
 
-function VehiclesTab({ rows, locked }: { rows: ProjectVehicleAssignment[]; locked: boolean }) {
+function VehiclesTab({ rows, locked, onAssignClick }: { rows: ProjectVehicleAssignment[]; locked: boolean; onAssignClick?: () => void }) {
   const columns: ColumnDef<ProjectVehicleAssignment>[] = [{ accessorKey: "vehicleNo", header: "Vehicle No" }, { accessorKey: "category", header: "Category" }, { accessorKey: "assignedDate", header: "Assigned Date" }, { accessorKey: "removedDate", header: "Removed Date" }, { accessorKey: "status", header: "Status" }];
-  return <SectionAction title="Vehicles" action="Assign Vehicle" hidden={locked}><DataTable columns={columns} data={rows} /></SectionAction>;
+  return <SectionAction title="Vehicles" action="Assign Vehicle" hidden={locked} onActionClick={onAssignClick}><DataTable columns={columns} data={rows} /></SectionAction>;
 }
 
 function DocumentsTab({ rows, locked }: { rows: Array<{ name: string; type: string; uploader: string; date: string }>; locked: boolean }) {
@@ -152,6 +159,143 @@ function FinanceTab({ expenses, payments, inventory }: { expenses: ProjectExpens
   return <div className="grid gap-4"><div className="grid gap-4 md:grid-cols-3"><StatCard title="Income" value={formatCurrency(income)} /><StatCard title="Expenses" value={formatCurrency(expense)} /><StatCard title="P&L" value={formatCurrency(income - expense)} /></div><p className="rounded-md border border-slate-200 bg-white p-4 text-sm text-slate-600 shadow-sm">Inventory lines tied to this project: {inventory.length}. Detailed journal entries are available only in Accounting ledgers.</p></div>;
 }
 
-function SectionAction({ title, action, hidden, children }: { title: string; action: string; hidden?: boolean; children: ReactNode }) {
-  return <section className="grid gap-4"><div className="flex justify-between gap-3"><h2 className="text-base font-semibold text-slate-950">{title}</h2>{!hidden ? <button className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700">{action}</button> : null}</div>{children}</section>;
+function SectionAction({ title, action, hidden, onActionClick, children }: { title: string; action: string; hidden?: boolean; onActionClick?: () => void; children: ReactNode }) {
+  return <section className="grid gap-4"><div className="flex justify-between gap-3"><h2 className="text-base font-semibold text-slate-950">{title}</h2>{!hidden ? <button onClick={onActionClick} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">{action}</button> : null}</div>{children}</section>;
+}
+
+function AssignTeamDialog({
+  open,
+  projectId,
+  onClose,
+  onSuccess,
+}: {
+  open: boolean;
+  projectId: string;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [employeeId, setEmployeeId] = useState("");
+  const { data: employees = [] } = useQuery({ queryKey: ["employees"], queryFn: getEmployees });
+  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: () => assignTeamMember(projectId, employeeId),
+    onSuccess: () => {
+      onSuccess();
+      onClose();
+    },
+    onError: (err) => setError(err instanceof Error ? err.message : "Error assigning member"),
+  });
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+        <h3 className="text-lg font-bold text-slate-900">Assign Team Member</h3>
+        <p className="text-sm text-slate-500 mt-1">Select an active employee to assign to this project's site.</p>
+        {error ? <div className="mt-3 rounded-md bg-red-50 p-2.5 text-sm text-red-700">{error}</div> : null}
+        
+        <div className="mt-4">
+          <label className="text-xs font-semibold uppercase text-slate-500">Select Employee</label>
+          <select
+            value={employeeId}
+            onChange={(e) => setEmployeeId(e.target.value)}
+            className="mt-1 h-10 w-full rounded-md border border-slate-300 px-3 text-sm"
+          >
+            <option value="">-- Choose Employee --</option>
+            {employees
+              .filter((e) => e.status === "active")
+              .map((e) => (
+                <option key={e.id} value={e.code}>
+                  {e.name} ({e.code}) - {e.position || "Staff"}
+                </option>
+              ))}
+          </select>
+        </div>
+
+        <div className="mt-6 flex justify-end gap-3">
+          <button onClick={onClose} className="h-10 rounded-md border border-slate-300 px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+            Cancel
+          </button>
+          <button
+            onClick={() => mutation.mutate()}
+            disabled={!employeeId || mutation.isPending}
+            className="h-10 rounded-md bg-cyan-700 px-4 text-sm font-semibold text-white hover:bg-cyan-800 disabled:opacity-50"
+          >
+            {mutation.isPending ? "Assigning..." : "Assign"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AssignVehicleDialog({
+  open,
+  projectId,
+  onClose,
+  onSuccess,
+}: {
+  open: boolean;
+  projectId: string;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [vehicleId, setVehicleId] = useState("");
+  const { data: vehicles = [] } = useQuery({ queryKey: ["vehicles"], queryFn: () => getVehicles() });
+  const [error, setError] = useState<string | null>(null);
+
+  const mutation = useMutation({
+    mutationFn: () => assignVehicle(vehicleId, { projectId }),
+    onSuccess: () => {
+      onSuccess();
+      onClose();
+    },
+    onError: (err) => setError(err instanceof Error ? err.message : "Error assigning vehicle"),
+  });
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+        <h3 className="text-lg font-bold text-slate-900">Assign Vehicle</h3>
+        <p className="text-sm text-slate-500 mt-1">Select an available vehicle to assign to this project.</p>
+        {error ? <div className="mt-3 rounded-md bg-red-50 p-2.5 text-sm text-red-700">{error}</div> : null}
+        
+        <div className="mt-4">
+          <label className="text-xs font-semibold uppercase text-slate-500">Select Vehicle</label>
+          <select
+            value={vehicleId}
+            onChange={(e) => setVehicleId(e.target.value)}
+            className="mt-1 h-10 w-full rounded-md border border-slate-300 px-3 text-sm"
+          >
+            <option value="">-- Choose Vehicle --</option>
+            {vehicles
+              .filter((v) => v.status === "available")
+              .map((v) => (
+                <option key={v.id} value={v.code}>
+                  {v.registrationNo} ({v.category})
+                </option>
+              ))}
+          </select>
+        </div>
+
+        <div className="mt-6 flex justify-end gap-3">
+          <button onClick={onClose} className="h-10 rounded-md border border-slate-300 px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+            Cancel
+          </button>
+          <button
+            onClick={() => mutation.mutate()}
+            disabled={!vehicleId || mutation.isPending}
+            className="h-10 rounded-md bg-cyan-700 px-4 text-sm font-semibold text-white hover:bg-cyan-800 disabled:opacity-50"
+          >
+            {mutation.isPending ? "Assigning..." : "Assign"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }

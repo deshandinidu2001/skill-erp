@@ -160,6 +160,7 @@ export type Quotation = {
   boqLines: BoqLine[];
   attachments: Attachment[];
   clientResponses: ClientResponse[];
+  clientToken?: string;
 };
 
 export type Project = {

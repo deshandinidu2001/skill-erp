@@ -1,8 +1,9 @@
-import { apiGet, apiPatch, asArray } from "@/services/api/client/http";
+import { apiGet, apiPatch, apiPost, asArray } from "@/services/api/client/http";
 import type { ActivityItem, Attachment, ClientPayment, EntityStatus, FilterParams, InventoryBalance, JournalEntry, PettyCash, Project, ProjectExpense, ProjectProgressUpdate, ProjectTeamAssignment, ProjectVehicleAssignment, PurchaseOrder, Quotation, StockRequest } from "@/types";
 
 export type ProjectDetail = {
   project: Project;
+  clientToken?: string;
   quotation?: Quotation;
   team: ProjectTeamAssignment[];
   progressUpdates: ProjectProgressUpdate[];
@@ -39,6 +40,10 @@ export function addProjectExpense(projectId: string, expense: Pick<ProjectExpens
   return apiPatch(`/api/projects/${projectId}`, { action: "add_expense", expense });
 }
 
+export function createProject(input: any): Promise<Project> {
+  return apiPost("/api/projects", input);
+}
+
 export function createFromQuotation(quotationId: string): Promise<Project> {
   return apiPostProjectFromQuotation(quotationId);
 }
@@ -46,4 +51,8 @@ export function createFromQuotation(quotationId: string): Promise<Project> {
 async function apiPostProjectFromQuotation(quotationId: string): Promise<Project> {
   const { apiPost } = await import("@/services/api/client/http");
   return apiPost("/api/projects", { quotationId });
+}
+
+export function assignTeamMember(projectId: string, employeeId: string) {
+  return apiPatch(`/api/projects/${projectId}`, { action: "assign_team", employeeId });
 }

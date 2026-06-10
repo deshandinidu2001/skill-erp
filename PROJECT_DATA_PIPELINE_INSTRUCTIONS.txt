@@ -1,337 +1,194 @@
-Skill Engineering ERP - Complete Project Data Pipeline
+================================================================================
+Skill Engineering ERP - Complete Project Data Pipeline & User Role Guide
+================================================================================
 
-Purpose
-This file explains how the system should be used from the first customer enquiry to project closeout. It also gives sample data to enter when testing every main database area: auth/app users, customers, leads, QS, quotations, projects, sites, stock, HR, vehicles, accounting, files, client portal, and audit records.
+Purpose:
+This guide details the end-to-end work pipeline of the Skill Engineering ERP system, 
+tracing every transaction from initial customer lead creation to project closeout.
+It lists the precise roles responsible for each stage, what inputs are required in 
+each section, the status transitions, and the database tables affected.
 
-1. Start With Demo Login
-- Open /login.
-- Select the role you want to test from the dropdown.
-- Click Start demo.
-- Use Super Admin to see all modules. Use role-specific logins to test permissions.
+--------------------------------------------------------------------------------
+1. Role Directory & Login Info
+--------------------------------------------------------------------------------
+Use the "/login" page to start a demo session for testing. You can login as:
+- Super Admin: Full read/write access across all modules.
+- Marketing Executive / Manager: Manages CRM, leads, requirements, and quotation approvals.
+- QS Engineer: Manages estimations, lines, and BOQ builders.
+- Project Manager (PM) / Technical Officer (TO): Manages projects, milestones, progress updates, stock requests, and petty cash.
+- Stock Manager / Store Keeper: Manages PO approvals, inventory, and goods receipt notes (GRNs).
+- HR Manager: Manages departments, positions, employee assignments, and payroll.
+- Vehicle Manager: Manages vehicle specs, meter logs, fuel logs, and maintenance logs.
+- Accountant / Finance Manager: Manages cash book, general ledger, petty cash settlements, client payments, and journal entries.
 
-Recommended role tests:
-- Marketing Executive: create and update leads.
-- QS Engineer: prepare estimations and BOQ lines.
-- Project Manager: manage projects, teams, site updates, expenses, and stock requests.
-- Stock Manager: approve stock requests and create purchase orders.
-- Store Keeper: receive goods and update site inventory.
-- HR Manager: employees, attendance, leave, payroll.
-- Vehicle Manager: vehicle assignments, fuel, meter, maintenance.
-- Accountant or Finance Manager: payments, expenses, journal entries, reports.
+--------------------------------================================================
+2. The Work Pipeline: Step-by-Step Flow
+--------------------------------================================================
 
-2. Customer And Lead Intake
-Sample customer:
-- Customer code: CUS-001
-- Name: Ceylon Logistics PLC
-- Contact person: Anura Silva
-- Phone: +94 77 123 4567
-- Email: anura@ceylonlogistics.lk
-- Location: Colombo 02
+STAGE 1: LEAD CREATION & CUSTOMER INTAKE
+----------------------------------------
+- Role: Marketing Executive
+- Action: Register a prospect customer and record their initial project request.
+- Status Path: lead status initialized as "new"
+- What to Fill:
+  - Customer Section: Customer Code (e.g. CUS-001), Company Name, Contact Person, Phone, Email, Location (Colombo, Galle, etc.).
+  - Lead Section: Lead Code (e.g. LEAD-1001), Project Title, Project Type (e.g. Drawing only, 2D/3D, Construction only, Full Project), Estimated Budget (LKR), Requirement Description.
+- Tables Covered: `customers`, `leads`, `lead_status_logs`
 
-Sample lead:
-- Lead code: LEAD-1001
-- Customer: Ceylon Logistics PLC
-- Project title: Warehouse mezzanine extension
-- Project type: Construction only
-- Requirement: Extend existing warehouse mezzanine without interrupting operations.
-- Drawing requirement: As-built review and fabrication drawings.
-- Construction requirement: Night-shift installation preferred.
-- Estimated budget: LKR 18,500,000
-- Priority: High
-- Status path: new -> under_review -> qs_estimation_pending
+STAGE 2: REQUIREMENT CAPTURE & WORKFLOW ASSIGNMENT
+--------------------------------------------------
+- Role: Marketing Executive or Marketing Manager
+- Action: Detail drawing/construction requirements, set the workflow type, and assign teams.
+- Status Path: lead status "new" -> "under_review"
+- What to Fill:
+  - Drawing Requirements: As-built plans needed, 2D layout, 3D renderings required.
+  - Construction Requirements: Site details, night shifts preferred, structural safety parameters.
+  - Workflow & Team Selection: Choose workflow (e.g. FULL_PROJECT) and assign 2D Team, 3D Team, or QS Team.
+- Tables Covered: `leads`, `lead_communications`, `file_attachments`
 
-Tables covered:
-- customers
-- leads
-- lead_communications
-- lead_status_logs
-- file_attachments
-- audit_logs
+STAGE 3: QS ESTIMATION & BOQ BUILDING
+-------------------------------------
+- Role: QS Engineer
+- Action: Prepare cost estimates (material, labour, equipment, overheads) and build a detailed BOQ.
+- Status Path: estimation status "draft" -> "in_progress" -> "ready_for_quotation"
+- What to Fill:
+  - Cost Summary Section: Material Cost Total, Labour Cost Total, Equipment Cost Total, Overhead Cost Total, Profit Margin Percent (e.g., 15%).
+  - Estimation Lines: Category (e.g., Civil, Mechanical), Description, Quantity, Unit, Unit Rate, Remarks.
+  - BOQ Builder Panel: Group/Section Title, Item Name, Item Description, Quantity, Unit, Unit Price.
+- Tables Covered: `estimations`, `estimation_lines`, `boqs`, `boq_sections`, `boq_items`
 
-3. QS Estimation And BOQ
-Sample estimation:
-- Estimation code: EST-2001
-- Lead: LEAD-1001
-- Material cost: LKR 9,800,000
-- Labour cost: LKR 3,200,000
-- Equipment cost: LKR 950,000
-- Overhead cost: LKR 650,000
-- Profit margin: 18%
-- Grand total: LKR 17,228,000
-- Status path: draft -> in_progress -> ready_for_quotation
+STAGE 4: QUOTATION GENERATION & MARK READY
+------------------------------------------
+- Role: QS Engineer
+- Action: Clicking "Mark Ready for Quotation" in the estimation page submits the estimate, automatically generates a quotation, and updates the lead status.
+- Status Path:
+  - Estimation: "ready_for_quotation"
+  - Quotation: created in "draft" status
+  - Lead: transitions from "under_review" -> "qs_estimation_pending"
+- What to Fill:
+  - Triggered automatically by the system. Links the estimation, BOQ ID, and calculates commercial totals (Subtotal, Tax/Profit Margin Value, Grand Total).
+- Tables Covered: `quotations`, `boqs` (updated with `quotation_id`)
 
-Sample BOQ line:
-- Section: Steel frame
-- Item: Universal beams
-- Description: Supply and install structural steel beams.
-- Quantity: 12
-- Unit: t
-- Unit price: LKR 620,000
+STAGE 5: COMMERCIAL REVIEW & CLIENT SUBMISSION
+----------------------------------------------
+- Role: Marketing Manager
+- Action: Review the quotation, verify payment terms, and send the proposal to the client.
+- Status Path:
+  - Quotation: "draft" -> "client_sent"
+  - Lead: "qs_estimation_pending" -> "quotation_submitted"
+- What to Fill:
+  - Payment Terms Text: e.g. "40% advance, 50% progress, 10% handover".
+  - Valid Until Date: date limit for quotation validity.
+  - Notes & Exclusions: Specific items excluded from the quote.
+- Tables Covered: `quotations` (updated with `sent_at`), `leads`, `audit_logs`
 
-Tables covered:
-- estimations
-- estimation_lines
-- boqs
-- boq_sections
-- boq_items
-- boq_item_breakdowns
-- bsr_rates
-- bsr_analysis
-- boq_import_mappings
-- material_aliases
-- unit_aliases
+STAGE 6: CLIENT APPROVAL (CLIENT PORTAL OR MANUAL)
+--------------------------------------------------
+- Role: Client (via Portal) or Marketing Manager (on behalf of client)
+- Action: Client opens the portal using their token, reviews the BOQ, and submits a decision.
+- Status Path:
+  - Quotation: "client_sent" -> "approved" (or "rejected" / "revision_requested")
+  - Lead: "quotation_submitted" -> "approved" (or "rejected" / "revision_requested")
+- What to Fill:
+  - Client Response Panel: Decision (Approved / Rejected / Revision Requested), Remarks or reasons for rejection/revision.
+- Tables Covered: `client_responses`, `quotations`, `leads`
 
-4. Quotation And Client Approval
-Sample quotation:
-- Quotation code: QUO-3001
-- Lead: LEAD-1001
-- Version: 1
-- Subtotal: LKR 17,228,000
-- Tax: LKR 3,101,040
-- Grand total: LKR 19,300,000
-- Valid until: 2026-06-30
-- Payment terms: 40% advance, 50% progress, 10% handover
-- Status path: draft -> under_review -> client_sent -> approved
+STAGE 7: PROJECT CREATION & SITE GENERATION
+-------------------------------------------
+- Role: Marketing Manager or Super Admin
+- Action: Convert the approved quotation into an active project.
+- Status Path:
+  - Project: "created" -> "assigned" -> "in_progress"
+- What to Fill:
+  - Project Details: Project Manager, TO, Start Date, End Date.
+  - System automatically creates:
+    1. A site record linked to the project (e.g. STE-9874).
+    2. A client access token (`client_access_tokens` table) to let the client log into `/client/[token]` and view real-time updates.
+- Tables Covered: `projects`, `sites`, `client_access_tokens`, `project_status_logs`
 
-Client response:
-- Decision: approved
-- Message: Approved subject to staged handover and night-work permit.
+STAGE 8: SITE WORKFORCE & HR MANAGEMENT
+---------------------------------------
+- Role: HR Manager
+- Action: Assign employees to sites, log attendance, and run payroll.
+- What to Fill:
+  - Employee Form: Code (EMP-001), Name, Department (Projects, QS, HR, Finance), Designation, Salary Type (monthly/daily), Salary Amount.
+  - Attendance: Date, Attendance Status (present, absent, leave), Location/Site assignment.
+  - Payroll Form: Batch Code, Period start/end dates, approve payroll batched lines.
+- Tables Covered: `departments`, `positions`, `employees`, `employee_site_assignments`, `attendance`, `payroll_batches`, `payroll_lines`
 
-Tables covered:
-- quotations
-- client_access_tokens
-- client_responses
-- taxes
-- tax_entries
+STAGE 9: VEHICLE & LOGISTICS ASSIGNMENT
+---------------------------------------
+- Role: Vehicle Manager or TO
+- Action: Assign vehicles to the project and track mileage and fuel usage.
+- What to Fill:
+  - Vehicle Form: Vehicle Code, License No, Category, Ownership, Status.
+  - Assignment: Project ID, Employee ID, Assigned Date.
+  - Meter Log: Current Odometer reading, Date.
+  - Fuel Log: Liters filled, Cost (LKR), Receipt Attachments.
+- Tables Covered: `vehicles`, `vehicle_assignments`, `vehicle_meter_logs`, `vehicle_fuel_logs`, `vehicle_maintenance_logs`
 
-5. Convert Approved Quotation To Project
-Sample ongoing project:
-- Project code: PRJ-4001
-- Name: Warehouse mezzanine extension
-- Customer: Ceylon Logistics PLC
-- Site: Colombo 02 warehouse
-- Manager: Kasun Jayasinghe
-- Budget: LKR 19,300,000
-- Start date: 2026-06-01
-- End date: 2026-08-15
-- Progress: 42%
-- Status path: created -> assigned -> in_progress
+STAGE 10: MATERIAL REQUISITION & STOCK MANAGEMENT
+-------------------------------------------------
+- Role: PM (to request), Stock Manager (to approve PO), Store Keeper (to receive)
+- Action: PM requests materials -> Stock Manager creates PO -> Store Keeper receives and updates inventory.
+- Status Path:
+  - Stock Request: "draft" -> "submitted" -> "approved" -> "converted_to_po"
+  - Purchase Order: "draft" -> "pending_approval" -> "approved" -> "issued"
+- What to Fill:
+  - Stock Request: Project, Site, Required Date, Material name, Quantity needed, Unit of Measure.
+  - Purchase Order: Supplier, Linked Stock Request ID, Quantity, Unit Price.
+  - Goods Receipt Note (GRN): Received Date, Quantity Received, Quantity Damaged.
+- Tables Covered: `stock_requests`, `stock_request_items`, `purchase_orders`, `purchase_order_items`, `goods_receipts`, `goods_receipt_items`, `site_inventory`, `stock_movements`
 
-Sample completed project:
-- Project code: PRJ-4004
-- Name: Hotel service yard upgrade
-- Customer: Northshore Developers
-- Budget: LKR 28,400,000
-- Start date: 2026-04-10
-- End date: 2026-06-01
-- Progress: 100%
-- Status path: created -> assigned -> in_progress -> completed
+STAGE 11: PROJECT EXPENSES & PETTY CASH ISSUANCE
+------------------------------------------------
+- Role: Project Manager (to record expense / request cash), Accountant (to post ledger)
+- Action: PM records project expenditures and requests petty cash. Accountant approves and logs transactions in the Chart of Accounts.
+- What to Fill:
+  - Expense Form: Category (material, labour, transport, misc), Date, Vendor, Amount, Payment Method, Notes.
+  - Petty Cash Form: Employee, Allocated Amount, Issued Date, Settled Amount.
+- Tables Covered: `project_expenses`, `petty_cash`
 
-Sample closed project:
-- Project code: PRJ-4005
-- Name: Racking safety modifications
-- Customer: Ceylon Logistics PLC
-- Budget: LKR 5,400,000
-- Status path: created -> assigned -> in_progress -> completed -> closed
+STAGE 12: FINANCIAL JOURNAL ENTRY & DOUBLE-ENTRY LEDGER
+-------------------------------------------------------
+- Role: Accountant or Finance Manager
+- Action: Auto-triggered by project expense, payment, or petty cash. Performs ledger bookkeeping.
+- Status Path: "draft" -> "posted"
+- What to Fill:
+  - Journal Entry Details: Reference No, Transaction Date, Project ID.
+  - Journal Lines: Dr Expense/Asset Account, Cr Cash/Bank Account (ensures Sum of Debits == Sum of Credits).
+- Tables Covered: `accounts`, `bank_accounts`, `journal_entries`, `journal_lines`, `client_payments`
 
-Tables covered:
-- projects
-- sites
-- project_status_logs
-- project_activity_logs
-- project_milestones
-- project_team_assignments
-- site_progress_updates
+STAGE 13: SITE PROGRESS UPDATES & CLIENT PORTAL UPDATES
+-------------------------------------------------------
+- Role: Technical Officer (TO) or Project Manager
+- Action: Submit weekly progress summaries and photos to be shown to the client.
+- What to Fill:
+  - Progress Form: Update Date, Progress Title, Work Summary, Percent Complete, Client Visible (Check/Uncheck).
+  - Documents Upload: Upload drawings, certificate scans, or milestone photos.
+- Tables Covered: `site_progress_updates`, `file_attachments`
 
-6. HR And Site Workforce
-Sample departments:
-- Administration
-- Marketing
-- Quantity Surveying
-- Projects
-- Stores
-- Finance
-- Human Resources
-- Vehicle Management
+STAGE 14: PROJECT COMPLETION & CLOSEOUT
+---------------------------------------
+- Role: PM (to mark completed), Super Admin / Accountant (to close)
+- Action: Close out project once work is complete, files are uploaded, and financials are settled.
+- Status Path: Project "in_progress" -> "completed" -> "closed"
+- What to Fill:
+  - PM completes progress to 100%.
+  - Validation: System prevents closing the project if there are pending PO receipts, unreconciled petty cash, or unpaid expenses.
+- Tables Covered: `projects`, `project_status_logs`, `audit_logs`
 
-Sample employees:
-- EMP-001, Kasun Jayasinghe, Projects, Project Manager, monthly, LKR 220,000
-- EMP-003, Sajith Kumara, QS, QS Engineer, monthly, LKR 180,000
-- EMP-004, Malith Silva, Stock, Store Keeper, daily, LKR 4,500
-
-Sample attendance:
-- EMP-001, 2026-06-04, present, Colombo 02
-- EMP-004, 2026-06-04, present, Galle
-- EMP-003, 2026-06-04, leave, Head Office
-
-Sample payroll:
-- Batch: PAY-2026-05-HO
-- Period: 2026-05-01 to 2026-05-31
-- Status path: draft -> prepared -> approved -> processed -> paid -> locked
-
-Tables covered:
-- departments
-- positions
-- work_roles
-- app_users
-- employees
-- employee_site_assignments
-- attendance
-- leave_requests
-- payroll_batches
-- payroll_lines
-
-7. Stock, Purchasing, Goods Receipt, And Inventory
-Sample stock request:
-- Request code: SR-5001
-- Project: PRJ-4001
-- Site: Colombo 02 warehouse
-- Required date: 2026-06-08
-- Item: GI pipe 2 inch
-- Quantity: 96 lengths
-- Status path: draft -> submitted -> qs_review -> approved -> converted_to_po
-
-Sample purchase order:
-- PO code: PO-6001
-- Supplier: Lanka Steel Traders
-- Linked request: SR-5001
-- Item: GI pipe 2 inch
-- Quantity: 96 lengths
-- Unit price: LKR 7,200
-- Status path: draft -> pending_approval -> approved -> issued
-
-Sample goods receipt:
-- GRN code: GR-7001
-- PO: PO-6002
-- Received by: Malith Silva
-- Received date: 2026-06-02
-- Item: Cement 50kg
-- Ordered: 240 bags
-- Received: 200 bags
-- Damaged: 0
-
-Tables covered:
-- suppliers
-- supplier_performance
-- units_of_measure
-- materials
-- stock_requests
-- stock_request_items
-- purchase_orders
-- purchase_order_items
-- purchase_approvals
-- goods_receipts
-- goods_receipt_items
-- site_inventory
-- stock_movements
-
-8. Vehicle Management
-Sample vehicle:
-- Vehicle code: VEH-001
-- Registration: CAB-2841
-- Category: truck
-- Ownership: owned
-- Status: assigned
-- Meter: 84,210
-- Project: PRJ-4001
-
-Sample logs:
-- Meter log: 2026-06-04, 84,210, logged by Kasun Jayasinghe
-- Fuel log: 2026-06-03, 48 liters, LKR 17,800
-- Maintenance log: VEH-003, brake repair, LKR 48,500
-
-Tables covered:
-- vehicles
-- vehicle_assignments
-- vehicle_meter_logs
-- vehicle_fuel_logs
-- vehicle_maintenance_logs
-
-9. Project Expenses, Petty Cash, Client Payments, And Accounting
-Sample project expense:
-- Expense code: EXP-1001
-- Project: PRJ-4001
-- Category: material
-- Vendor: Lanka Steel Traders
-- Date: 2026-06-02
-- Amount: LKR 2,450,000
-- Approval status: approved
-
-Sample petty cash:
-- Project: PRJ-4001
-- Employee: Kasun Jayasinghe
-- Issued: LKR 50,000
-- Allocated: LKR 75,000
-- Settled: LKR 12,000
-- Status: pending
-
-Sample client payment:
-- Payment code: PAY-1001
-- Project: PRJ-4001
-- Customer: Ceylon Logistics PLC
-- Date: 2026-06-01
-- Amount: LKR 7,720,000
-- Method: Bank transfer
-- Milestone: Advance
-
-Sample journal entries:
-- JE-1001: debit Bank Current Account LKR 7,720,000, credit Accounts Receivable LKR 7,720,000.
-- JE-1002: debit Material Expense LKR 2,450,000, credit Bank Current Account LKR 2,450,000.
-
-Tables covered:
-- accounts
-- bank_accounts
-- expense_categories
-- project_expenses
-- petty_cash
-- client_payments
-- journal_entries
-- journal_lines
-
-10. Files, Client Portal, Reporting, And Audit
-Sample files:
-- Lead attachment: warehouse-existing-layout.xlsx
-- Quotation attachment: Quotation-QUO-3003-v1.pdf
-- Project attachment: PRJ-4004-completion-certificate.pdf
-
-Sample client portal token:
-- Token: portal-skill-demo-2026
-- Project: PRJ-4001
-- Expires: 2026-12-31
-- Active: true
-
-Sample audit log:
-- Actor: Super Admin
-- Action: create
-- Entity: project
-- Entity ID: PRJ-4001
-- Metadata: quotation converted to project
-
-Tables covered:
-- file_attachments
-- client_access_tokens
-- client_responses
-- audit_logs
-
-11. End-To-End Test Checklist
-1. Login as Marketing Executive and create a customer lead.
-2. Move lead to under_review, then send to QS.
-3. Login as QS Engineer and create estimation lines and BOQ items.
-4. Generate quotation and submit it for review.
-5. Login as Super Admin or Marketing Manager and mark quotation client approved.
-6. Convert quotation to project.
-7. Assign manager, technical officer, site team, and vehicle.
-8. Add site progress updates and upload project files.
-9. Raise a stock request from the project.
-10. Approve the request, create a purchase order, and receive goods.
-11. Confirm site inventory and stock movements.
-12. Add attendance and payroll records for site staff.
-13. Add project expenses and petty cash.
-14. Record client payments and posted journal entries.
-15. Move project to completed only when work and handover documents are done.
-16. Move project to closed only when payments, expenses, inventory, payroll, and reports are reconciled.
-
-12. Database Table Coverage Summary
-The sample flow above covers these public schema tables:
-departments, positions, work_roles, app_users, employees, customers, leads, lead_communications, lead_status_logs, estimations, estimation_lines, projects, quotations, sites, suppliers, units_of_measure, materials, site_inventory, stock_requests, stock_request_items, purchase_orders, purchase_order_items, goods_receipts, goods_receipt_items, stock_movements, attendance, leave_requests, payroll_batches, payroll_lines, vehicles, vehicle_assignments, vehicle_fuel_logs, vehicle_maintenance_logs, vehicle_meter_logs, accounts, journal_entries, journal_lines, bank_accounts, expense_categories, project_expenses, petty_cash, client_payments, taxes, tax_entries, file_attachments, client_access_tokens, client_responses, audit_logs, boq_import_mappings, boqs, boq_sections, boq_items, boq_item_breakdowns, bsr_rates, bsr_analysis, material_aliases, unit_aliases, project_activity_logs, project_milestones, project_status_logs, project_team_assignments, site_progress_updates, purchase_approvals, supplier_performance, employee_site_assignments.
-
+--------------------------------================================================
+3. Database Table Coverage Summary
+--------------------------------================================================
+The end-to-end project workflow covers the following Supabase tables:
+- CRM: `customers`, `leads`, `lead_communications`, `lead_status_logs`
+- QS: `estimations`, `estimation_lines`, `boqs`, `boq_sections`, `boq_items`
+- Sales: `quotations`, `client_responses`, `client_access_tokens`
+- Project: `projects`, `sites`, `project_status_logs`, `project_activity_logs`, `site_progress_updates`
+- HR: `departments`, `positions`, `employees`, `employee_site_assignments`, `attendance`, `payroll_batches`, `payroll_lines`
+- Stock: `suppliers`, `materials`, `units_of_measure`, `stock_requests`, `stock_request_items`, `purchase_orders`, `purchase_order_items`, `goods_receipts`, `goods_receipt_items`, `site_inventory`, `stock_movements`
+- Vehicle: `vehicles`, `vehicle_assignments`, `vehicle_meter_logs`, `vehicle_fuel_logs`, `vehicle_maintenance_logs`
+- Finance: `accounts`, `bank_accounts`, `project_expenses`, `petty_cash`, `client_payments`, `journal_entries`, `journal_lines`
+- Auditing: `audit_logs`, `file_attachments`
+================================================================================

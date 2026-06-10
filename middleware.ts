@@ -29,9 +29,10 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL(`/client/${clientToken}`, req.url));
   }
 
-  if (pathname.startsWith("/client") && role !== "client_user" && role !== "super_admin") {
-    return NextResponse.redirect(new URL("/dashboard", req.url));
-  }
+  // Allow logged-in users to preview client portal links directly
+  // if (pathname.startsWith("/client") && role !== "client_user" && role !== "super_admin") {
+  //   return NextResponse.redirect(new URL("/dashboard", req.url));
+  // }
 
   if (pathname.startsWith("/stock") && !canAccessStockPath(role, pathname)) {
     return NextResponse.redirect(new URL("/dashboard", req.url));
