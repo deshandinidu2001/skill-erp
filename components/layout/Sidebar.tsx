@@ -133,10 +133,10 @@ export function Sidebar({ role, collapsed, onToggle, mobileOpen, onClose }: { ro
     <aside
       className={cn(
         "flex h-full shrink-0 flex-col overflow-hidden bg-[#102d36] text-slate-200 transition-all",
-        collapsed && !mobileOpen ? "lg:w-20" : "w-[268px]",
+        collapsed && !mobileOpen ? "lg:w-[88px]" : "w-[268px]",
       )}
     >
-      <div className="flex h-[76px] shrink-0 items-center justify-between border-b border-white/10 px-5">
+      <div className={cn("relative flex h-[76px] shrink-0 items-center justify-between border-b border-white/10 px-5", collapsed && !mobileOpen && "justify-center px-0")}>
         <Link href="/dashboard" onClick={onClose} className="flex items-center gap-3 overflow-hidden">
           <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#c6f36b] text-sm font-black tracking-tight text-[#102d36]">
             SE
@@ -151,7 +151,7 @@ export function Sidebar({ role, collapsed, onToggle, mobileOpen, onClose }: { ro
         <button
           type="button"
           onClick={onToggle}
-          className="hidden h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-white/10 hover:text-white lg:grid"
+          className={cn("hidden h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-white/10 hover:text-white lg:grid", collapsed && !mobileOpen && "absolute right-1")}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
@@ -213,7 +213,7 @@ export function Sidebar({ role, collapsed, onToggle, mobileOpen, onClose }: { ro
   return (
     <>
       <div className={cn("fixed inset-0 z-40 bg-slate-950/50 backdrop-blur-sm lg:hidden", mobileOpen ? "block" : "hidden")} onClick={onClose} />
-      <div className={cn("fixed inset-y-0 left-0 z-50 w-[268px] transition-all lg:static lg:z-auto lg:translate-x-0", collapsed ? "lg:w-20" : "lg:w-[268px]", mobileOpen ? "translate-x-0" : "-translate-x-full")}>{sidebar}</div>
+      <div className={cn("fixed inset-y-0 left-0 z-50 w-[268px] transition-all lg:static lg:z-auto lg:translate-x-0", collapsed ? "lg:w-[88px]" : "lg:w-[268px]", mobileOpen ? "translate-x-0" : "-translate-x-full")}>{sidebar}</div>
     </>
   );
 }

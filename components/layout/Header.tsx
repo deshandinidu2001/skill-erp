@@ -60,19 +60,20 @@ export function Header({
             </div>
           ) : null}
         </div>
-        <div className="flex items-center gap-3 border-l border-slate-200 pl-4 sm:pl-5">
+        <div className="ml-auto flex items-center gap-3 border-l border-slate-200 pl-4 sm:pl-5">
           <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#d9ebe5] text-sm font-bold text-[#155e58]">{(user?.name ?? "U").slice(0, 1).toUpperCase()}</div>
           <div className="hidden sm:block">
-            <p className="text-sm font-semibold leading-none text-slate-950">{user?.name ?? "User"}</p>
-            <p className="mt-1 text-xs text-slate-500">{user?.role ? roleLabels[user.role] : "Loading"}</p>
+            <p className="text-sm font-semibold leading-none text-slate-950">{user?.role ? roleLabels[user.role] : "Loading"}</p>
+            <p className="mt-1 text-xs text-slate-500">Current role</p>
           </div>
           <button
             type="button"
             onClick={() => signOut({ callbackUrl: "/login" })}
-            className="grid h-9 w-9 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+            className="inline-flex h-9 items-center justify-center gap-2 rounded-lg px-2.5 text-sm font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-900"
             aria-label="Sign out"
           >
             <LogOut className="h-4 w-4" />
+            <span className="hidden lg:inline">Sign out</span>
           </button>
         </div>
       </div>
