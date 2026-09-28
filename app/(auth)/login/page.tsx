@@ -46,26 +46,28 @@ function LoginForm() {
   }
 
   return (
-    <main className="grid min-h-screen bg-slate-100 px-4 py-8 lg:grid-cols-[1fr_480px]">
-      <section className="hidden items-center justify-center bg-[linear-gradient(135deg,#0f766e,#155e75)] p-10 text-white lg:flex">
+    <main className="grid min-h-screen bg-[#f6f8fb] p-3 sm:p-5 lg:grid-cols-[1fr_480px]">
+      <section className="hidden items-center justify-center overflow-hidden rounded-[28px] bg-[#102d36] p-12 text-white lg:flex">
         <div className="max-w-xl">
-          <div className="mb-8 grid h-16 w-16 place-items-center rounded-md bg-white text-xl font-bold text-cyan-800">
+          <div className="mb-10 grid h-16 w-16 place-items-center rounded-2xl bg-[#c6f36b] text-xl font-black text-[#102d36]">
             SE
           </div>
-          <h1 className="text-4xl font-semibold tracking-tight">Skill Engineering ERP</h1>
-          <p className="mt-4 text-lg leading-8 text-cyan-50">
+          <p className="mb-4 text-xs font-bold uppercase tracking-[0.24em] text-[#c6f36b]">One connected workspace</p>
+          <h1 className="text-5xl font-bold leading-tight tracking-tight">Build better work, together.</h1>
+          <p className="mt-5 text-lg leading-8 text-slate-300">
             Operations control for leads, estimates, projects, stock, HR, vehicles, accounting, and reports.
           </p>
         </div>
       </section>
-      <section className="flex items-center justify-center">
-        <div className="w-full max-w-md rounded-md border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="mb-6">
-            <div className="mb-4 grid h-12 w-12 place-items-center rounded-md bg-cyan-700 text-sm font-bold text-white lg:hidden">
+      <section className="flex items-center justify-center px-3 py-12 sm:px-8">
+        <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-7 shadow-[0_20px_60px_rgba(16,45,54,0.06)] sm:p-9">
+          <div className="mb-8">
+            <div className="mb-6 grid h-12 w-12 place-items-center rounded-xl bg-[#102d36] text-sm font-black text-[#c6f36b] lg:hidden">
               SE
             </div>
-            <h2 className="text-2xl font-semibold tracking-tight text-slate-950">Skill Engineering ERP</h2>
-            <p className="mt-1 text-sm text-slate-500">Select a demo role to enter the system.</p>
+            <p className="mb-2 text-xs font-bold uppercase tracking-[0.2em] text-[#257565]">Welcome back</p>
+            <h2 className="text-3xl font-bold tracking-tight text-[#102d36]">Sign in to your workspace</h2>
+            <p className="mt-2 text-sm text-slate-500">Select a demo role to explore Skill Engineering ERP.</p>
           </div>
           {toast ? (
             <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
@@ -76,7 +78,7 @@ function LoginForm() {
             <label className="grid gap-2 text-sm font-medium text-slate-700">
               Role
               <select
-                className="h-11 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none focus:border-cyan-700 focus:ring-2 focus:ring-cyan-100"
+                className="h-12 rounded-xl border border-slate-200 bg-[#f6f8fb] px-4 text-sm text-slate-950 outline-none focus:border-teal-600 focus:ring-4 focus:ring-teal-50"
                 {...register("role")}
               >
                 {INTERNAL_ROLES.map((role) => (
@@ -92,7 +94,7 @@ function LoginForm() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="mt-2 inline-flex h-11 items-center justify-center gap-2 rounded-md bg-cyan-700 px-4 text-sm font-semibold text-white hover:bg-cyan-800 disabled:cursor-not-allowed disabled:opacity-70"
+              className="mt-3 inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#102d36] px-4 text-sm font-semibold text-white hover:bg-[#1c4950] disabled:cursor-not-allowed disabled:opacity-70"
             >
               {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               {!isSubmitting ? <LogIn className="h-4 w-4" /> : null}

@@ -11,7 +11,7 @@ export function Breadcrumb() {
   const visibleParts = parts[0] === "dashboard" ? parts.slice(1) : parts;
 
   return (
-    <nav className="flex items-center gap-1 text-sm text-slate-500">
+    <nav aria-label="Breadcrumb" className="flex items-center gap-1 text-xs font-medium text-slate-500">
       <Link href="/dashboard" className="hover:text-slate-950">
         Dashboard
       </Link>

@@ -7,10 +7,12 @@ import {
   BriefcaseBusiness,
   Calculator,
   Car,
-  ClipboardList,
+  ChevronLeft,
+  ChevronRight,
   FolderKanban,
   LayoutDashboard,
   Megaphone,
+  X,
   Package,
   ReceiptText,
   ShieldCheck,
@@ -26,7 +28,6 @@ type NavItem = {
   href: string;
   module: string;
   icon: LucideIcon;
-  badge?: string;
   children?: Omit<NavItem, "icon" | "children">[];
 };
 
@@ -37,7 +38,6 @@ const navItems: NavItem[] = [
     href: "/marketing/leads",
     module: "marketing",
     icon: Megaphone,
-    badge: "10",
     children: [{ label: "Leads", href: "/marketing/leads", module: "marketing" }],
   },
   {
@@ -51,7 +51,7 @@ const navItems: NavItem[] = [
     ],
   },
   { label: "Quotations", href: "/quotations", module: "quotations", icon: ReceiptText },
-  { label: "Projects", href: "/projects", module: "projects", icon: FolderKanban, badge: "5" },
+  { label: "Projects", href: "/projects", module: "projects", icon: FolderKanban },
   {
     label: "Stock",
     href: "/stock/requests",
@@ -125,71 +125,70 @@ const navItems: NavItem[] = [
   },
 ];
 
-export function Sidebar({ role, collapsed, onToggle }: { role?: Role; collapsed: boolean; onToggle: () => void }) {
+export function Sidebar({ role, collapsed, onToggle, mobileOpen, onClose }: { role?: Role; collapsed: boolean; onToggle: () => void; mobileOpen: boolean; onClose: () => void }) {
   const pathname = usePathname();
   const allowed = navItems.filter((item) => role && hasModuleAccess(role, item.module));
 
-  return (
+  const sidebar = (
     <aside
       className={cn(
-        "hidden h-screen shrink-0 overflow-hidden border-r border-slate-200 bg-white transition-all lg:flex lg:flex-col",
-        collapsed ? "lg:w-20" : "lg:w-72",
+        "flex h-full shrink-0 flex-col overflow-hidden bg-[#102d36] text-slate-200 transition-all",
+        collapsed && !mobileOpen ? "lg:w-20" : "w-[268px]",
       )}
     >
-      <div className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 px-4">
-        <Link href="/dashboard" className="flex items-center gap-3 overflow-hidden">
-          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-cyan-700 text-sm font-bold text-white">
+      <div className="flex h-[76px] shrink-0 items-center justify-between border-b border-white/10 px-5">
+        <Link href="/dashboard" onClick={onClose} className="flex items-center gap-3 overflow-hidden">
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#c6f36b] text-sm font-black tracking-tight text-[#102d36]">
             SE
           </div>
-          {!collapsed ? (
+          {(!collapsed || mobileOpen) ? (
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-slate-950">Skill Engineering</p>
-              <p className="truncate text-xs text-slate-500">ERP</p>
+              <p className="truncate text-sm font-bold tracking-tight text-white">Skill Engineering</p>
+              <p className="truncate text-[11px] uppercase tracking-[0.18em] text-slate-400">Workspace</p>
             </div>
           ) : null}
         </Link>
         <button
           type="button"
           onClick={onToggle}
-          className="grid h-8 w-8 place-items-center rounded-md border border-slate-200 text-slate-500 hover:bg-slate-50"
-          aria-label="Toggle sidebar"
+          className="hidden h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-white/10 hover:text-white lg:grid"
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
-          <ClipboardList className="h-4 w-4" />
+          {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
         </button>
+        <button type="button" onClick={onClose} className="grid h-8 w-8 place-items-center rounded-lg text-slate-300 hover:bg-white/10 lg:hidden" aria-label="Close menu"><X className="h-5 w-5" /></button>
       </div>
-      <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto overscroll-contain p-3">
-        <nav className="grid gap-1">
+      <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-6">
+        {(!collapsed || mobileOpen) ? <p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Navigation</p> : null}
+        <nav className="grid gap-1.5" aria-label="Main navigation">
           {allowed.map((item) => {
-            const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+            const active = pathname === item.href || pathname.startsWith(`${item.href}/`) || item.children?.some((child) => pathname === child.href || pathname.startsWith(`${child.href}/`));
             const Icon = item.icon;
             return (
               <div key={item.label}>
                 <Link
                   href={item.href}
+                  onClick={onClose}
                   className={cn(
-                    "flex h-10 items-center gap-3 rounded-md px-3 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-950",
-                    active && "bg-cyan-50 text-cyan-800",
-                    collapsed && "justify-center px-0",
+                    "flex h-10 items-center gap-3 rounded-xl px-3 text-sm font-medium text-slate-300 transition-colors hover:bg-white/10 hover:text-white",
+                    active && "bg-[#c6f36b] font-semibold text-[#102d36] hover:bg-[#d5fa91] hover:text-[#102d36]",
+                    collapsed && !mobileOpen && "justify-center px-0",
                   )}
-                  title={collapsed ? item.label : undefined}
+                  title={collapsed && !mobileOpen ? item.label : undefined}
                 >
                   <Icon className="h-4 w-4 shrink-0" />
-                  {!collapsed ? <span className="flex-1 truncate">{item.label}</span> : null}
-                  {!collapsed && item.badge ? (
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
-                      {item.badge}
-                    </span>
-                  ) : null}
+                  {(!collapsed || mobileOpen) ? <span className="flex-1 truncate">{item.label}</span> : null}
                 </Link>
-                {!collapsed && item.children ? (
-                  <div className="ml-7 mt-1 grid gap-1 border-l border-slate-200 pl-3">
+                {(!collapsed || mobileOpen) && active && item.children ? (
+                  <div className="ml-5 mt-1 grid gap-0.5 border-l border-white/15 pl-5">
                     {item.children.filter((child) => canShowChild(role, child.href)).map((child) => (
                       <Link
                         key={child.label}
                         href={child.href}
+                        onClick={onClose}
                         className={cn(
-                          "rounded-md px-2 py-1.5 text-sm text-slate-500 hover:bg-slate-50 hover:text-slate-950",
-                          pathname === child.href && "font-medium text-cyan-800",
+                          "rounded-lg px-2 py-1.5 text-sm text-slate-400 hover:bg-white/10 hover:text-white",
+                          pathname === child.href && "font-semibold text-[#c6f36b]",
                         )}
                       >
                         {child.label}
@@ -202,12 +201,20 @@ export function Sidebar({ role, collapsed, onToggle }: { role?: Role; collapsed:
           })}
         </nav>
       </div>
-      {!collapsed ? (
-        <div className="shrink-0 border-t border-slate-200 p-4 text-xs text-slate-500">
-          Current access: {role ? roleLabels[role] : "Loading"}
+      {(!collapsed || mobileOpen) ? (
+        <div className="shrink-0 border-t border-white/10 p-5 text-xs text-slate-400">
+          <span className="mb-1 block uppercase tracking-[0.16em]">Signed in as</span>
+          <span className="font-medium text-white">{role ? roleLabels[role] : "Loading"}</span>
         </div>
       ) : null}
     </aside>
+  );
+
+  return (
+    <>
+      <div className={cn("fixed inset-0 z-40 bg-slate-950/50 backdrop-blur-sm lg:hidden", mobileOpen ? "block" : "hidden")} onClick={onClose} />
+      <div className={cn("fixed inset-y-0 left-0 z-50 w-[268px] transition-all lg:static lg:z-auto lg:translate-x-0", collapsed ? "lg:w-20" : "lg:w-[268px]", mobileOpen ? "translate-x-0" : "-translate-x-full")}>{sidebar}</div>
+    </>
   );
 }
 

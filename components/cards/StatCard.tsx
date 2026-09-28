@@ -12,14 +12,14 @@ type StatCardProps = {
 
 export function StatCard({ title, value, delta, icon: Icon, href }: StatCardProps) {
   const content = (
-    <div className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="h-full rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_8px_30px_rgba(16,45,54,0.04)] transition-shadow hover:shadow-[0_12px_36px_rgba(16,45,54,0.09)] sm:p-6">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm font-medium text-slate-500">{title}</p>
-          <p className="mt-2 text-2xl font-semibold text-slate-950">{value}</p>
+          <p className="mt-4 text-[clamp(1.4rem,2vw,2rem)] font-bold tracking-tight text-[#102d36]">{value}</p>
         </div>
         {Icon ? (
-          <div className="rounded-md bg-cyan-50 p-2 text-cyan-700">
+          <div className="rounded-xl bg-[#e9f5ef] p-2.5 text-[#257565]">
             <Icon className="h-5 w-5" />
           </div>
         ) : null}
@@ -30,7 +30,7 @@ export function StatCard({ title, value, delta, icon: Icon, href }: StatCardProp
 
   if (!href) return content;
   return (
-    <Link href={href} className={cn("block transition hover:-translate-y-0.5 hover:shadow-md")}>
+    <Link href={href} className={cn("block h-full transition-transform hover:-translate-y-1")}>
       {content}
     </Link>
   );

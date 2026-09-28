@@ -6,7 +6,7 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: "Skill ERP",
     start_url: "/dashboard",
     display: "standalone",
-    background_color: "#f8fafc",
-    theme_color: "#0e7490",
+    background_color: "#f6f8fb",
+    theme_color: "#102d36",
   };
 }

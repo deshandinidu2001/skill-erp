@@ -12,7 +12,7 @@ export function EntityCard({
   meta?: string;
 }) {
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="rounded-xl border border-slate-200/80 bg-white p-4 transition-colors hover:border-teal-200">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold text-slate-950">{title}</h3>
